@@ -82,3 +82,20 @@ button { background:#2563eb; border:1px solid #1d4ed8; color:#e5e7eb; padding:8p
 button:hover { filter:brightness(1.1); }
 .hint { font-size:12px; color:#94a3b8; }
 
+
+/* Sidebar nav */
+.nav { display: flex; flex-direction: column; gap: 6px; margin-top: 8px; }
+.navlink {
+  display: block;
+  text-decoration: none;
+  color: #cbd5e1;
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1px solid transparent;
+}
+.navlink:hover { background: #142033; border-color: #1e293b; }
+.navlink.active { background: #1e293b; color: #93c5fd; border-color: #334155; }
+
+/* Single-card pages should expand to fill the right column */
+.fill { flex: 1 1 auto; min-height: 0; }
+
