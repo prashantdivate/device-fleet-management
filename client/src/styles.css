@@ -1,0 +1,84 @@
+:root { color-scheme: dark; }
+* { box-sizing: border-box; }
+html, body, #root { height: 100%; margin: 0; }
+body {
+  font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
+  background:#0b1220; color:#e5e7eb;
+}
+
+/* Grid sticks to viewport height so nothing can push it taller */
+.page {
+  display: grid;
+  grid-template-columns: 360px 1fr;
+  gap: 16px;
+  padding: 16px;
+  height: 100vh;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.sidebar { background:#0f172a; border:1px solid #1e293b; border-radius:12px; padding:16px; }
+.title { margin-top: 0; }
+
+.section { margin-bottom: 16px; }
+label { display:block; font-size:12px; color:#93c5fd; margin-bottom:4px; }
+input { width:100%; padding:8px 10px; border-radius:8px; background:#0b1730; border:1px solid #334155; color:#e5e7eb; }
+
+.row { display:flex; gap:8px; }
+.col { flex:1; }
+
+/* Right column fills the page height; children must fit inside */
+.right {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  height: 100%;
+  min-height: 0;
+}
+
+/* Cards are flex columns so their content can flex/scroll */
+.card {
+  background:#0f172a; border:1px solid #1e293b; border-radius:12px;
+  padding:12px; box-shadow:0 1px 2px rgba(0,0,0,.2);
+  display:flex; flex-direction:column;
+  min-height:0;
+}
+
+.card-header { display:flex; justify-content:space-between; align-items:center; padding:0 4px 8px 4px; }
+.pill { font-size:12px; padding:4px 8px; border-radius:999px; background:#1e293b; color:#93c5fd; }
+
+/* --- HARD CAP: fixed-height logs window --- */
+.logs-card {
+  flex: 0 0 420px;  /* do not grow or shrink; fixed 420px tall */
+  height: 420px;
+  min-height: 420px;
+  overflow: hidden; /* content must scroll inside */
+}
+
+/* Terminal takes the remaining space */
+.term-card {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+/* The <pre> with logs scrolls INSIDE the logs card */
+.logs-pane {
+  flex: 1;
+  min-height: 0;
+  height: 100%;
+  overflow-y: auto;      /* vertical scroll inside */
+  overflow-x: auto;      /* horizontal scroll if a line is too long */
+  white-space: pre-wrap; /* wrap long lines; change to 'pre' if you prefer horiz scroll */
+  overflow-wrap: anywhere;
+  margin: 0;             /* <pre> default margin can add extra height */
+  background:#0a0f1a; padding:8px; border-radius:8px; border:1px solid #182032;
+}
+
+.term-wrap { display:flex; flex-direction:column; height:100%; }
+.term-toolbar { display:flex; justify-content:flex-end; margin-bottom:8px; }
+.term-pane { flex:1; overflow:hidden; background:#000; border-radius:8px; border:1px solid #182032; }
+
+button { background:#2563eb; border:1px solid #1d4ed8; color:#e5e7eb; padding:8px 12px; border-radius:8px; cursor:pointer; }
+button:hover { filter:brightness(1.1); }
+.hint { font-size:12px; color:#94a3b8; }
+

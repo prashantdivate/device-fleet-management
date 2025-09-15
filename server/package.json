@@ -1,0 +1,19 @@
+{
+  "name": "device-log-prototype-server",
+  "version": "0.1.0",
+  "type": "module",
+  "main": "src/index.js",
+  "scripts": {
+    "dev": "node --watch src/index.js",
+    "start": "node src/index.js",
+    "simulate": "node src/simulate-logs.js --device demo-001 --host localhost --port 4000 --rate 8"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.0",
+    "express": "^4.19.2",
+    "morgan": "^1.10.0",
+    "ssh2": "^1.15.0",
+    "ws": "^8.18.0"
+  }
+}
