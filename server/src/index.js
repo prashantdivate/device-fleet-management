@@ -14,7 +14,11 @@ app.use(cors({ origin: process.env.CLIENT_ORIGIN || "*", credentials: true }));
 app.use(express.json({ limit: "2mb" }));
 app.use(morgan("dev"));
 
+import devicesRouter from "./api/devices.js";
+
 app.get("/health", (req, res) => res.json({ ok: true }));
+
+app.use("/api/devices", devicesRouter);
 
 // Serve built frontend if available
 const buildDir = process.env.CLIENT_BUILD_DIR && path.resolve(process.env.CLIENT_BUILD_DIR);

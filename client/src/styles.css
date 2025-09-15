@@ -1,101 +1,165 @@
-:root { color-scheme: dark; }
+/* ==== Base / Theme (light, balena-ish) ==== */
+:root { color-scheme: light; }
 * { box-sizing: border-box; }
 html, body, #root { height: 100%; margin: 0; }
+
 body {
   font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
-  background:#0b1220; color:#e5e7eb;
+  background: #f6f8fb;       /* light canvas */
+  color: #0f172a;            /* deep navy text */
 }
 
-/* Grid sticks to viewport height so nothing can push it taller */
+/* ==== App Layout ==== */
 .page {
   display: grid;
-  grid-template-columns: 360px 1fr;
+  grid-template-columns: 240px 1fr;   /* left menu width */
   gap: 16px;
   padding: 16px;
-  height: 100vh;
+  height: 100vh;                      /* lock to viewport */
   min-height: 0;
   overflow: hidden;
 }
 
-.sidebar { background:#0f172a; border:1px solid #1e293b; border-radius:12px; padding:16px; }
+.sidebar {
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  padding: 16px;
+}
 .title { margin-top: 0; }
 
-.section { margin-bottom: 16px; }
-label { display:block; font-size:12px; color:#93c5fd; margin-bottom:4px; }
-input { width:100%; padding:8px 10px; border-radius:8px; background:#0b1730; border:1px solid #334155; color:#e5e7eb; }
-
-.row { display:flex; gap:8px; }
-.col { flex:1; }
-
-/* Right column fills the page height; children must fit inside */
 .right {
   display: flex;
   flex-direction: column;
   gap: 16px;
   height: 100%;
+  min-height: 0;     /* allow inner scroll areas */
+}
+
+/* ==== Cards ==== */
+.card {
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  padding: 12px;
+  box-shadow: 0 1px 2px rgba(0,0,0,.04);
+  display: flex;
+  flex-direction: column;
   min-height: 0;
 }
 
-/* Cards are flex columns so their content can flex/scroll */
-.card {
-  background:#0f172a; border:1px solid #1e293b; border-radius:12px;
-  padding:12px; box-shadow:0 1px 2px rgba(0,0,0,.2);
-  display:flex; flex-direction:column;
-  min-height:0;
+.card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0 4px 8px 4px;
 }
 
-.card-header { display:flex; justify-content:space-between; align-items:center; padding:0 4px 8px 4px; }
-.pill { font-size:12px; padding:4px 8px; border-radius:999px; background:#1e293b; color:#93c5fd; }
+.pill {
+  font-size: 12px;
+  padding: 4px 8px;
+  border-radius: 999px;
+  background: #eef2ff;
+  color: #1d4ed8;
+  border: 1px solid #dbeafe;
+}
+.pill-ok  { background:#ecfdf5; color:#047857; border-color:#a7f3d0; }
+.pill-off { background:#fef2f2; color:#b91c1c; border-color:#fecaca; }
 
-/* --- HARD CAP: fixed-height logs window --- */
+/* ==== Sidebar Nav ==== */
+.nav { display: flex; flex-direction: column; gap: 6px; margin-top: 4px; }
+.navlink {
+  display: block; text-decoration: none; color: #334155;
+  padding: 8px 10px; border-radius: 8px; border: 1px solid transparent;
+}
+.navlink:hover  { background: #f1f5f9; border-color: #e2e8f0; }
+.navlink.active { background: #e0ecff; color: #1d4ed8; border-color: #bfdbfe; }
+
+/* ==== Forms / Inputs ==== */
+.section { margin-bottom: 16px; }
+label { display: block; font-size: 12px; color: #334155; margin-bottom: 4px; }
+input {
+  width: 100%; padding: 8px 10px; border-radius: 8px;
+  background: #ffffff; border: 1px solid #d1d5db; color: #0f172a;
+}
+.row { display: flex; gap: 8px; }
+.col { flex: 1; }
+
+button {
+  background: #1d4ed8; border: 1px solid #1d4ed8; color: #ffffff;
+  padding: 8px 12px; border-radius: 8px; cursor: pointer;
+}
+button:hover { filter: brightness(1.05); }
+.hint { font-size: 12px; color: #64748b; }
+
+/* ==== Summary page grid (left = device card, right = logs+terminal) ==== */
+.summary-grid {
+  display: grid;
+  grid-template-columns: 1.1fr 1.4fr;
+  grid-template-rows: 1fr 1fr;
+  gap: 16px;
+  height: 100%;
+  min-height: 0;
+}
+.summary-card { grid-column: 1; grid-row: 1 / span 2; }
+
+/* Fixed-height logs card (never grows) + terminal fills remainder */
 .logs-card {
-  flex: 0 0 420px;  /* do not grow or shrink; fixed 420px tall */
+  grid-column: 2; grid-row: 1;
+  flex: 0 0 420px;
   height: 420px;
   min-height: 420px;
-  overflow: hidden; /* content must scroll inside */
+  overflow: hidden;    /* logs scroll inside .logs-pane */
 }
-
-/* Terminal takes the remaining space */
 .term-card {
-  flex: 1 1 auto;
+  grid-column: 2; grid-row: 2;
   min-height: 0;
+  flex: 1 1 auto;
 }
 
-/* The <pre> with logs scrolls INSIDE the logs card */
+/* ==== Logs pane (dark for readability) ==== */
 .logs-pane {
   flex: 1;
   min-height: 0;
   height: 100%;
-  overflow-y: auto;      /* vertical scroll inside */
-  overflow-x: auto;      /* horizontal scroll if a line is too long */
-  white-space: pre-wrap; /* wrap long lines; change to 'pre' if you prefer horiz scroll */
+  overflow-y: auto;        /* scroll inside fixed card */
+  overflow-x: auto;
+  white-space: pre-wrap;   /* change to 'pre' if you prefer horiz scroll */
   overflow-wrap: anywhere;
-  margin: 0;             /* <pre> default margin can add extra height */
-  background:#0a0f1a; padding:8px; border-radius:8px; border:1px solid #182032;
-}
-
-.term-wrap { display:flex; flex-direction:column; height:100%; }
-.term-toolbar { display:flex; justify-content:flex-end; margin-bottom:8px; }
-.term-pane { flex:1; overflow:hidden; background:#000; border-radius:8px; border:1px solid #182032; }
-
-button { background:#2563eb; border:1px solid #1d4ed8; color:#e5e7eb; padding:8px 12px; border-radius:8px; cursor:pointer; }
-button:hover { filter:brightness(1.1); }
-.hint { font-size:12px; color:#94a3b8; }
-
-
-/* Sidebar nav */
-.nav { display: flex; flex-direction: column; gap: 6px; margin-top: 8px; }
-.navlink {
-  display: block;
-  text-decoration: none;
-  color: #cbd5e1;
-  padding: 8px 10px;
+  margin: 0;
+  background: #0a0f1a;     /* dark code-like box */
+  color: #e5e7eb;
+  padding: 8px;
   border-radius: 8px;
-  border: 1px solid transparent;
+  border: 1px solid #d1d5db;
 }
-.navlink:hover { background: #142033; border-color: #1e293b; }
-.navlink.active { background: #1e293b; color: #93c5fd; border-color: #334155; }
 
-/* Single-card pages should expand to fill the right column */
+/* ==== Terminal ==== */
+.term-wrap { display: flex; flex-direction: column; height: 100%; }
+.term-toolbar { display: flex; justify-content: flex-end; margin-bottom: 8px; }
+.term-pane {
+  flex: 1;
+  overflow: hidden;
+  background: #000000;
+  border-radius: 8px;
+  border: 1px solid #d1d5db;
+}
+
+/* ==== Devices table ==== */
+.table-wrap { overflow: auto; }
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+.table th, .table td {
+  border-bottom: 1px solid #e5e7eb;
+  padding: 10px 12px;
+  text-align: left;
+  white-space: nowrap;
+}
+.table tbody tr:hover { background: #f8fafc; }
+
+/* ==== Utility ==== */
 .fill { flex: 1 1 auto; min-height: 0; }
 
