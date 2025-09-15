@@ -34,19 +34,14 @@ function Sidebar() {
         <div className="row">
           <div className="col">
             <label>User</label>
-            <input
-              value={ssh.user}
-              onChange={(e) => setSsh({ ...ssh, user: e.target.value })}
-            />
+            <input value={ssh.user} onChange={(e) => setSsh({ ...ssh, user: e.target.value })} />
           </div>
           <div className="col">
             <label>Port</label>
             <input
               type="number"
               value={ssh.port}
-              onChange={(e) =>
-                setSsh({ ...ssh, port: parseInt(e.target.value || "22", 10) })
-              }
+              onChange={(e) => setSsh({ ...ssh, port: parseInt(e.target.value || "22", 10) })}
             />
           </div>
         </div>
