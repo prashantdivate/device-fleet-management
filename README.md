@@ -1,55 +1,81 @@
-# Device Log Prototype (Local-only)
+Install Node for Windows and run in cmd so that wifi Ip can work:
 
-This is a minimal full‑stack prototype that collects **device logs over WebSocket** and shows them in a web UI.
-It also includes a **web SSH terminal** to the device (prototype: password-based via `ssh2`).
-
-## Run (development)
-
-### 1) Backend
-```bash
+# server
 cd server
+set HOST=192.168.29.146
+set PORT=4000
 npm i
 npm run dev
-# listens on :4000
-```
 
-### 2) Frontend
-```bash
-cd ../client
+# client
+cd ..\client
 npm i
-npm run dev
-# opens http://localhost:5173
-```
+npm run dev -- --host 192.168.29.146 --port 5173
 
-Vite dev server proxies `/live` and `/ssh` to the backend.
 
-## Configure devices (Fluent Bit)
 
-On the device, point Fluent Bit to your server:
-```ini
-[OUTPUT]
-    Name    websocket
-    Match   *
-    Host    <YOUR_SERVER_IP>
-    Port    4000
-    URI     /ingest?device_id=${MACHINE_ID}
-    Format  json_lines
-```
+Running agent on device:
 
-## Production build (optional)
-```bash
-cd client && npm run build
-cd ../server
-# set path so Express serves the built files:
-echo "CLIENT_BUILD_DIR=../client/dist" >> .env
-npm start
-# server will serve the built UI and websockets on the same :4000
-```
+Install pip first-
+python3 -m ensurepip
 
-## SSH (prototype)
-- Click **Connect** in the “Device Terminal” section after entering `host`, `user`, `password`, `port`.
-- For production: switch to key-based auth and put TLS/mTLS in front of the server.
+pip3 install websockets
 
-## Notes
-- Logs are stored as JSONL under `server/logs/<deviceId>/YYYY-MM-DD.jsonl` and a small in-memory tail is kept for fast initial load.
-- UI layout mimics the screenshot: **right top** = realtime logs, **right bottom** = SSH terminal; **left** = summary/inputs.
+2) Quick start (against your existing Node server)
+
+Demo mode (no real logs):
+
+export SERVER_URL=ws://<SERVER_IP>:4000/ingest
+export DEVICE_ID=$(cat /etc/machine-id 2>/dev/null || hostname)
+export INPUT=demo
+python3 agent.py
+
+Journald:
+
+export SERVER_URL=ws://<SERVER_IP>:4000/ingest
+export VERBOSE=1
+export INPUT=journal
+python3 agent.py
+
+Files (comma-separated, globs allowed):
+
+export SERVER_URL=ws://<SERVER_IP>:4000/ingest
+export INPUT=files
+export FILES="/var/log/*.log,/var/lib/docker/containers/*/*-json.log"
+python3 agent.py
+
+TLS (wss:// with self-signed while testing):
+
+export SERVER_URL=wss://your.domain/ingest
+export TLS_INSECURE=1   # only for lab testing
+python3 agent.py
+Open your frontend → Summary/Logs with the matching Device ID and you’ll see the stream.
+
+3) Optional: run as a systemd service
+/etc/systemd/system/device-agent.service
+
+[Unit]
+Description=Device Log Agent (WebSocket)
+After=network-online.target
+Wants=network-online.target
+[Service]
+Type=simple
+ExecStart=/usr/bin/env SERVER_URL=ws://<SERVER_IP>:4000/ingest INPUT=journal DEVICE_ID=%H \
+  /usr/bin/python3 /opt/device-agent/agent.py
+WorkingDirectory=/opt/device-agent
+Restart=always
+RestartSec=3s
+Environment=SPOOL_DIR=/var/lib/device-agent/spool
+Environment=PING_SEC=30
+Environment=RECONNECT_MIN=1.5
+Environment=RECONNECT_MAX=20
+[Install]
+WantedBy=multi-user.target
+
+# install
+sudo mkdir -p /opt/device-agent
+sudo cp agent.py /opt/device-agent/
+sudo mkdir -p /var/lib/device-agent/spool
+sudo systemctl daemon-reload
+sudo systemctl enable --now device-agent
+
