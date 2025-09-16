@@ -20,7 +20,17 @@ function normalizeLevel(obj) {
   }
   return { label: "INFO", cls: "sev-info" };
 }
-function pickUnit(o){ return o._SYSTEMD_UNIT || o.SYSLOG_IDENTIFIER || o.COMM || o._COMM || "—"; }
+function pickUnit(o) {
+  // Prefer human-friendly identifier first
+  const id = o.SYSLOG_IDENTIFIER || o.COMM || o._COMM;
+  if (id) return id;
+
+  // Fall back to unit/slice, but hide generic 'init.scope'
+  const unit = o._SYSTEMD_UNIT || o._SYSTEMD_SLICE || o._SYSTEMD_CGROUP;
+  if (unit && unit !== "init.scope") return unit;
+
+  return "systemd";
+}
 function pickTs(o){
   const iso = o.TS || o.__REALTIME_TIMESTAMP || o._SOURCE_REALTIME_TIMESTAMP;
   try {
@@ -29,13 +39,30 @@ function pickTs(o){
   } catch {}
   return new Date();
 }
-function parseLine(line){
+
+function parseLine(line) {
   try {
     const o = JSON.parse(line);
-    const {label, cls} = normalizeLevel(o);
-    return { ts: pickTs(o), level: label, levelCls: cls, unit: pickUnit(o), msg: o.MESSAGE ?? line, raw: line };
+    const { label, cls } = normalizeLevel(o);
+    // Make sure MESSAGE is a clean single line for the compact view
+    const msg = String(o.MESSAGE ?? line).replace(/\s+/g, " ").trim();
+    return {
+      ts: pickTs(o),
+      level: label,
+      levelCls: cls,
+      unit: pickUnit(o),
+      msg,
+      raw: line,
+    };
   } catch {
-    return { ts:new Date(), level:"INFO", levelCls:"sev-info", unit:"—", msg:line, raw:line };
+    return {
+      ts: new Date(),
+      level: "INFO",
+      levelCls: "sev-info",
+      unit: "—",
+      msg: line,
+      raw: line,
+    };
   }
 }
 
