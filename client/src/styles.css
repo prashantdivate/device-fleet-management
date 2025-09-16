@@ -163,3 +163,74 @@ button:hover { filter: brightness(1.05); }
 /* ==== Utility ==== */
 .fill { flex: 1 1 auto; min-height: 0; }
 
+
+/* ===== Logs UI (pretty view) ===== */
+.log-toolbar {
+  display:flex; align-items:center; justify-content:space-between;
+  margin-bottom:8px; gap:8px;
+}
+.log-toolbar-left { display:flex; align-items:center; gap:6px; font-size:12px; color:#475569; }
+.conn-dot { width:8px; height:8px; border-radius:999px; background:#94a3b8; display:inline-block; }
+.conn-dot.on { background:#16a34a; }
+.conn-dot.off{ background:#ef4444; }
+.conn-text { opacity:.9; }
+
+.log-toolbar-right { display:flex; align-items:center; gap:8px; }
+.log-filter {
+  width:220px; padding:6px 8px; border-radius:8px; border:1px solid #d1d5db; background:#fff; color:#0f172a;
+}
+.log-toggle { font-size:12px; color:#334155; display:flex; align-items:center; gap:6px; }
+
+.logs-pane {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  font-size: 12.5px;
+  line-height: 1.35;
+}
+
+/* pretty list */
+.log-list { display:block; }
+.log-row {
+  display:grid;
+  grid-template-columns: 190px 76px 220px 1fr; /* time | level | unit | message */
+  gap: 10px;
+  padding: 4px 6px;
+  border-bottom: 1px dashed #e5e7eb;
+}
+.log-row:hover { background:#f8fafc; }
+
+.log-ts { color:#64748b; }
+.log-level {
+  font-weight:600; text-transform:uppercase; text-align:center;
+  padding:2px 6px; border-radius:999px; border:1px solid transparent;
+}
+.sev-info   { color:#1d4ed8; background:#e0ecff; border-color:#bfdbfe; }
+.sev-warn   { color:#b45309; background:#fff7ed; border-color:#fde68a; }
+.sev-error  { color:#b91c1c; background:#fef2f2; border-color:#fecaca; }
+.sev-debug  { color:#475569; background:#f1f5f9; border-color:#e2e8f0; }
+.sev-notice { color:#0f766e; background:#ecfeff; border-color:#a5f3fc; }
+.sev-crit   { color:#881337; background:#ffe4e6; border-color:#fecdd3; }
+
+.log-unit { color:#0f172a; opacity:.85; }
+.log-msg  { white-space: pre-wrap; word-break: break-word; color:#0f172a; }
+
+/* raw view */
+.log-raw { margin:0; white-space: pre-wrap; word-break: break-word; }
+
+/* empty state */
+.log-empty { color:#64748b; }
+
+/* status colors */
+.conn-dot { width:8px; height:8px; border-radius:999px; background:#94a3b8; display:inline-block; }
+.conn-dot.on   { background:#16a34a; }  /* streaming */
+.conn-dot.idle { background:#f59e0b; }  /* idle/no recent frames */
+.conn-dot.off  { background:#ef4444; }  /* viewer disconnected */
+
+/* --- fix dark log-pane contrast --- */
+.logs-pane { background:#0a0f1a; color:#e5e7eb; } /* ensure light text on dark */
+.log-row { border-bottom:1px dashed #1e293b; }   /* darker divider for dark bg */
+.log-row:hover { background:#111827; }           /* subtle dark hover */
+
+.log-ts   { color:#cbd5e1; }                     /* lighter timestamp on dark */
+.log-unit, .log-msg { color:#e5e7eb; }           /* force readable text */
+.log-raw  { margin:0; white-space:pre-wrap; word-break:break-word; color:#e5e7eb; }
+
