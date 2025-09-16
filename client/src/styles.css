@@ -239,3 +239,27 @@ button:hover { filter: brightness(1.05); }
 .log-unit, .log-msg { color:#e5e7eb; }           /* force readable text */
 .log-raw  { margin:0; white-space:pre-wrap; word-break:break-word; color:#e5e7eb; }
 
+/* input in Logs card, above viewer */
+.logs-controls { display:flex; flex-direction:column; gap:6px; margin-bottom:8px; }
+.id-input {
+  width: 320px; max-width: 100%;
+  padding: 6px 8px;
+  border-radius: 8px; border: 1px solid #d1d5db;
+  background: #fff; color: #0f172a;
+}
+
+/* SSH field row above terminal */
+.term-fields {
+  display: grid;
+  grid-template-columns: 1.1fr 0.6fr 0.4fr 1fr; /* host | user | port | pass */
+  gap: 8px;
+  margin-bottom: 8px;
+}
+.term-fields input {
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: #ffffff;
+  border: 1px solid #d1d5db;
+  color: #0f172a;
+}
+

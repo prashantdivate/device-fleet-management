@@ -3,66 +3,58 @@ import { useSession } from "../ctx/SessionContext.jsx";
 import LiveLogs from "../modules/LiveLogs.jsx";
 import SshTerminal from "../modules/SshTerminal.jsx";
 
-/* Layout: left = Device Summary card (like balena),
-   right top = Logs (fixed height), right bottom = Terminal. */
 export default function Summary() {
-  const { deviceId, setDeviceId, ssh, setSsh } = useSession();
+  const {
+    deviceId, setDeviceId,
+    sshHost, setSshHost,
+    sshUser, setSshUser,
+    sshPort, setSshPort,
+    sshPass, setSshPass,
+  } = useSession();
 
   return (
     <div className="summary-grid">
-      <section className="card summary-card">
-        <div className="card-header">
-          <h3>Device Summary</h3>
-        </div>
+      {/* Left info card (kept minimal) */}
+      <div className="card summary-card">
+        <div className="card-header"><h3>Device Summary</h3></div>
+        <div className="hint">Use the right-side cards to set Device ID for logs and SSH details for the terminal.</div>
+      </div>
 
-        <div className="summary-form">
-          <div className="row">
-            <div className="col">
-              <label>Device ID</label>
-              <input value={deviceId} onChange={(e)=>setDeviceId(e.target.value)} placeholder="MACHINE_ID or label" />
-            </div>
-          </div>
-
-          <div className="row">
-            <div className="col">
-              <label>SSH Host</label>
-              <input value={ssh.host||""} onChange={(e)=>setSsh({...ssh, host:e.target.value})} placeholder="192.168.x.x" />
-            </div>
-            <div className="col">
-              <label>User</label>
-              <input value={ssh.user||"root"} onChange={(e)=>setSsh({...ssh, user:e.target.value})} />
-            </div>
-            <div className="col">
-              <label>Port</label>
-              <input type="number" value={ssh.port||22} onChange={(e)=>setSsh({...ssh, port:parseInt(e.target.value||"22",10)})} />
-            </div>
-          </div>
-
-          <div className="row">
-            <div className="col">
-              <label>Password (prototype)</label>
-              <input type="password" value={ssh.password||""} onChange={(e)=>setSsh({...ssh, password:e.target.value})} />
-              <p className="hint" style={{marginTop:8}}>For demo only. Prefer SSH keys + TLS in production.</p>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <section className="card logs-card">
+      {/* Logs card */}
+      <div className="card logs-card">
         <div className="card-header">
           <h3>Logs</h3>
-          <div className="pill">{deviceId || "no device selected"}</div>
+          <span className="pill">{deviceId || "—"}</span>
         </div>
-        <LiveLogs deviceId={deviceId} />
-      </section>
 
-      <section className="card term-card">
-        <div className="card-header">
-          <h3>Terminal</h3>
-          <div className="pill">{ssh.host || "no host"}</div>
+        {/* Moved here: Device ID input (Summary page only) */}
+        <div className="logs-controls">
+          <label style={{fontSize:12, color:"#334155"}}>Device ID</label>
+          <input
+            className="id-input"
+            value={deviceId}
+            onChange={(e)=>setDeviceId(e.target.value)}
+            placeholder="MACHINE_ID or label"
+          />
         </div>
-        <SshTerminal {...ssh} />
-      </section>
+
+        <LiveLogs />
+      </div>
+
+      {/* Terminal card */}
+      <div className="card term-card">
+        <div className="card-header"><h3>Device Terminal</h3></div>
+
+        {/* Moved here: SSH fields (Summary page only) */}
+        <div className="term-fields">
+          <input placeholder="SSH Host" value={sshHost} onChange={(e)=>setSshHost(e.target.value)} />
+          <input placeholder="User" value={sshUser} onChange={(e)=>setSshUser(e.target.value)} />
+          <input placeholder="Port" value={sshPort} onChange={(e)=>setSshPort(e.target.value)} />
+          <input placeholder="Password (prototype)" type="password" value={sshPass} onChange={(e)=>setSshPass(e.target.value)} />
+        </div>
+
+        <SshTerminal />
+      </div>
     </div>
   );
 }
