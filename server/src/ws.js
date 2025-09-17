@@ -3,7 +3,21 @@ import { WebSocketServer } from "ws";
 import fs from "fs";
 import path from "path";
 
+/**
+ * Minimal WS hub:
+ * - /ingest  : device agents send JSON lines (logs) + periodic {type:'snapshot'} frames
+ * - /live    : browser viewers receive real-time logs for a device
+ *
+ * We also keep a tiny in-memory snapshot store for the Summary panel.
+ */
+
 const LOG_ROOT = path.join(process.cwd(), "logs");
+
+// deviceId -> { device_id, snapshot?, _serverTs, control?, online? }
+const deviceState = new Map();
+
+// deviceId -> Set<WebSocket> viewers
+const viewers = new Map();
 
 function appendLine(deviceId, line) {
   try {
@@ -17,12 +31,30 @@ function appendLine(deviceId, line) {
   }
 }
 
-export function setupWs(server) {
-  // One WSS we attach manually for selected paths.
-  const wss = new WebSocketServer({ noServer: true });
+/** public accessor used by the REST route */
+export function getDeviceSummary(deviceId) {
+  const s = deviceState.get(deviceId);
+  if (!s) {
+    return { device_id: deviceId, online: false };
+  }
+  const age = Date.now() - (s._serverTs || 0);
+  const online = age < 20_000; // 20s heartbeat window
+  return {
+    device_id: deviceId,
+    online,
+    snapshot: s.snapshot || null,
+    // keep flat copies for older client shapes
+    os: s.snapshot?.os || null,
+    ips: s.snapshot?.ips || [],
+    runtime: s.snapshot?.runtime || "",
+    containers: s.snapshot?.containers || [],
+    _serverTs: s._serverTs || Date.now(),
+    control: s.control || { enabled: false },
+  };
+}
 
-  // deviceId -> Set<WebSocket> (viewers)
-  const viewers = new Map();
+export function setupWs(server) {
+  const wss = new WebSocketServer({ noServer: true });
 
   server.on("upgrade", (req, socket, head) => {
     let url;
@@ -33,11 +65,7 @@ export function setupWs(server) {
       return;
     }
     const pathname = url.pathname;
-
-    if (pathname !== "/ingest" && pathname !== "/live") {
-      // Not a WS endpoint we handle; let Express/HTTP deal with it
-      return;
-    }
+    if (pathname !== "/ingest" && pathname !== "/live") return;
 
     wss.handleUpgrade(req, socket, head, (ws) => {
       ws.pathname = pathname;
@@ -48,8 +76,9 @@ export function setupWs(server) {
 
   wss.on("connection", (ws) => {
     const { pathname, deviceId } = ws;
+
     if (pathname === "/live") {
-      console.log("[ws] viewer connected:", deviceId);
+      // viewer
       let set = viewers.get(deviceId);
       if (!set) viewers.set(deviceId, (set = new Set()));
       set.add(ws);
@@ -57,7 +86,6 @@ export function setupWs(server) {
       ws.on("close", () => {
         set.delete(ws);
         if (set.size === 0) viewers.delete(deviceId);
-        console.log("[ws] viewer disconnected:", deviceId);
       });
       return;
     }
@@ -65,24 +93,48 @@ export function setupWs(server) {
     if (pathname === "/ingest") {
       console.log("[ws] ingest connected:", deviceId);
 
+      // ensure a state record exists
+      if (!deviceState.has(deviceId)) {
+        deviceState.set(deviceId, {
+          device_id: deviceId,
+          snapshot: null,
+          _serverTs: Date.now(),
+          control: { enabled: false }, // keep disabled until you wire remote control
+        });
+      }
+
       ws.on("message", (data) => {
-        const line = data.toString();
-        // console.log("[ws] ingest msg", deviceId, line.slice(0, 80));
-        appendLine(deviceId, line);
+        const text = data.toString();
+        // bump heartbeat
+        const s = deviceState.get(deviceId) || { device_id: deviceId };
+        s._serverTs = Date.now();
+
+        // snapshot frames or log lines?
+        let parsed = null;
+        try { parsed = JSON.parse(text); } catch {}
+
+        if (parsed && parsed.type === "snapshot") {
+          s.snapshot = parsed;
+          deviceState.set(deviceId, s);
+          return; // snapshot not forwarded to viewers
+        }
+
+        // normal log line: persist + fan-out
+        appendLine(deviceId, text);
+        deviceState.set(deviceId, s);
 
         const set = viewers.get(deviceId);
         if (set) {
           for (const v of set) {
-            if (v.readyState === v.OPEN) v.send(line);
+            if (v.readyState === v.OPEN) v.send(text);
           }
         }
       });
 
       ws.on("close", () => {
+        // keep last snapshot; online/offline is derived by age in getDeviceSummary()
         console.log("[ws] ingest disconnected:", deviceId);
       });
-      return;
     }
   });
 }
-
