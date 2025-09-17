@@ -3,6 +3,13 @@ import { WebSocketServer } from "ws";
 import fs from "fs";
 import path from "path";
 
+/**
+ * WS hub:
+ * - /ingest  : device agents send JSON lines (+ periodic {type:'snapshot'})
+ * - /live    : browsers subscribe to live logs
+ * Also keeps a tiny in-memory snapshot store for Summary + Devices list.
+ */
+
 const LOG_ROOT = path.join(process.cwd(), "logs");
 
 // deviceId -> { device_id, snapshot?, _serverTs, control? }
@@ -10,9 +17,6 @@ const deviceState = new Map();
 
 // deviceId -> Set<WebSocket> (viewers)
 const viewers = new Map();
-
-// deviceId -> WebSocket (ingest/device connection) for control
-const ingesters = new Map();
 
 function appendLine(deviceId, line) {
   try {
@@ -26,19 +30,13 @@ function appendLine(deviceId, line) {
   }
 }
 
-/** public accessor used by the REST route */
+/** Summary for one device (used by REST /summary) */
 export function getDeviceSummary(deviceId) {
   const s = deviceState.get(deviceId);
   if (!s) return { device_id: deviceId, online: false };
 
   const age = Date.now() - (s._serverTs || 0);
   const online = age < 20_000;
-
-  // Prefer control reported in snapshot; otherwise fall back to state.
-  const controlMerged =
-    (s.snapshot && s.snapshot.control) ||
-    s.control ||
-    { enabled: false };
 
   return {
     device_id: deviceId,
@@ -49,21 +47,47 @@ export function getDeviceSummary(deviceId) {
     runtime: s.snapshot?.runtime || "",
     containers: s.snapshot?.containers || [],
     _serverTs: s._serverTs || Date.now(),
-    control: controlMerged,
+    control: s.control || { enabled: false },
   };
 }
 
-/** send a control frame to a connected device (returns true if delivered) */
-export function sendControl(deviceId, payload) {
-  const ws = ingesters.get(deviceId);
-  if (!ws || ws.readyState !== ws.OPEN) return false;
-  try {
-    ws.send(JSON.stringify({ type: "control", ...payload }));
-    console.log("[ws] control ->", deviceId, payload);
-    return true;
-  } catch {
-    return false;
+/** List of devices (used by REST GET /api/devices) */
+export function listDevices() {
+  const rows = [];
+  const now = Date.now();
+
+  for (const [id, s] of deviceState.entries()) {
+    const last = s._serverTs || 0;
+    const online = now - last < 20_000;
+
+    const os = s.snapshot?.os || {};
+    const osName = os.name || "";
+    const osVersion = os.version || osName;
+    const osVariant =
+      /dev(elopment)?/i.test(os.version || "") || /dev/i.test(os.build || "")
+        ? "development"
+        : "";
+
+    // We don’t force a hostname in the agent—fall back to id.
+    const name =
+      s.snapshot?.hostname ||
+      s.snapshot?.os?.hostname ||
+      id; // safe fallback
+
+    rows.push({
+      device_id: id,
+      name,
+      uuid: id.slice(0, 6),
+      online,
+      lastSeen: last,
+      osVersion,
+      osVariant,
+    });
   }
+
+  // Most recent first
+  rows.sort((a, b) => (b.lastSeen || 0) - (a.lastSeen || 0));
+  return rows;
 }
 
 export function setupWs(server) {
@@ -94,6 +118,7 @@ export function setupWs(server) {
       let set = viewers.get(deviceId);
       if (!set) viewers.set(deviceId, (set = new Set()));
       set.add(ws);
+
       ws.on("close", () => {
         set.delete(ws);
         if (set.size === 0) viewers.delete(deviceId);
@@ -103,14 +128,14 @@ export function setupWs(server) {
 
     if (pathname === "/ingest") {
       console.log("[ws] ingest connected:", deviceId);
-      ingesters.set(deviceId, ws);
 
+      // ensure state exists
       if (!deviceState.has(deviceId)) {
         deviceState.set(deviceId, {
           device_id: deviceId,
           snapshot: null,
           _serverTs: Date.now(),
-          control: { enabled: false },
+          control: { enabled: process.env.CONTROL_ENABLED === "1" },
         });
       }
 
@@ -120,30 +145,16 @@ export function setupWs(server) {
         s._serverTs = Date.now();
 
         let parsed = null;
-        try { parsed = JSON.parse(text); } catch {}
+        try {
+          parsed = JSON.parse(text);
+        } catch {}
 
-        // Capabilities / hello
-        if (parsed && parsed.type === "hello") {
-          const enabled = !!(parsed.control && parsed.control.enabled);
-          s.control = { enabled };
-          deviceState.set(deviceId, s);
-          console.log("[ws] hello ctl=", enabled, deviceId);
-          return;
-        }
-
-        // Snapshot (may also carry control)
         if (parsed && parsed.type === "snapshot") {
           s.snapshot = parsed;
-          if (parsed.control) {
-            const enabled = !!parsed.control.enabled;
-            s.control = { enabled };
-            console.log("[ws] snapshot ctl=", enabled, deviceId);
-          }
           deviceState.set(deviceId, s);
-          return;
+          return; // snapshots are not broadcast to viewers
         }
 
-        // Log line -> persist + fan-out
         appendLine(deviceId, text);
         deviceState.set(deviceId, s);
 
@@ -156,7 +167,6 @@ export function setupWs(server) {
       });
 
       ws.on("close", () => {
-        ingesters.delete(deviceId);
         console.log("[ws] ingest disconnected:", deviceId);
       });
     }
