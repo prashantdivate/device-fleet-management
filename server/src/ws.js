@@ -3,21 +3,16 @@ import { WebSocketServer } from "ws";
 import fs from "fs";
 import path from "path";
 
-/**
- * Minimal WS hub:
- * - /ingest  : device agents send JSON lines (logs) + periodic {type:'snapshot'} frames
- * - /live    : browser viewers receive real-time logs for a device
- *
- * We also keep a tiny in-memory snapshot store for the Summary panel.
- */
-
 const LOG_ROOT = path.join(process.cwd(), "logs");
 
-// deviceId -> { device_id, snapshot?, _serverTs, control?, online? }
+// deviceId -> { device_id, snapshot?, _serverTs, control? }
 const deviceState = new Map();
 
-// deviceId -> Set<WebSocket> viewers
+// deviceId -> Set<WebSocket> (viewers)
 const viewers = new Map();
+
+// deviceId -> WebSocket (ingest/device connection) for control
+const ingesters = new Map();
 
 function appendLine(deviceId, line) {
   try {
@@ -34,23 +29,41 @@ function appendLine(deviceId, line) {
 /** public accessor used by the REST route */
 export function getDeviceSummary(deviceId) {
   const s = deviceState.get(deviceId);
-  if (!s) {
-    return { device_id: deviceId, online: false };
-  }
+  if (!s) return { device_id: deviceId, online: false };
+
   const age = Date.now() - (s._serverTs || 0);
-  const online = age < 20_000; // 20s heartbeat window
+  const online = age < 20_000;
+
+  // Prefer control reported in snapshot; otherwise fall back to state.
+  const controlMerged =
+    (s.snapshot && s.snapshot.control) ||
+    s.control ||
+    { enabled: false };
+
   return {
     device_id: deviceId,
     online,
     snapshot: s.snapshot || null,
-    // keep flat copies for older client shapes
     os: s.snapshot?.os || null,
     ips: s.snapshot?.ips || [],
     runtime: s.snapshot?.runtime || "",
     containers: s.snapshot?.containers || [],
     _serverTs: s._serverTs || Date.now(),
-    control: s.control || { enabled: false },
+    control: controlMerged,
   };
+}
+
+/** send a control frame to a connected device (returns true if delivered) */
+export function sendControl(deviceId, payload) {
+  const ws = ingesters.get(deviceId);
+  if (!ws || ws.readyState !== ws.OPEN) return false;
+  try {
+    ws.send(JSON.stringify({ type: "control", ...payload }));
+    console.log("[ws] control ->", deviceId, payload);
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 export function setupWs(server) {
@@ -78,11 +91,9 @@ export function setupWs(server) {
     const { pathname, deviceId } = ws;
 
     if (pathname === "/live") {
-      // viewer
       let set = viewers.get(deviceId);
       if (!set) viewers.set(deviceId, (set = new Set()));
       set.add(ws);
-
       ws.on("close", () => {
         set.delete(ws);
         if (set.size === 0) viewers.delete(deviceId);
@@ -92,34 +103,47 @@ export function setupWs(server) {
 
     if (pathname === "/ingest") {
       console.log("[ws] ingest connected:", deviceId);
+      ingesters.set(deviceId, ws);
 
-      // ensure a state record exists
       if (!deviceState.has(deviceId)) {
         deviceState.set(deviceId, {
           device_id: deviceId,
           snapshot: null,
           _serverTs: Date.now(),
-          control: { enabled: false }, // keep disabled until you wire remote control
+          control: { enabled: false },
         });
       }
 
       ws.on("message", (data) => {
         const text = data.toString();
-        // bump heartbeat
         const s = deviceState.get(deviceId) || { device_id: deviceId };
         s._serverTs = Date.now();
 
-        // snapshot frames or log lines?
         let parsed = null;
         try { parsed = JSON.parse(text); } catch {}
 
-        if (parsed && parsed.type === "snapshot") {
-          s.snapshot = parsed;
+        // Capabilities / hello
+        if (parsed && parsed.type === "hello") {
+          const enabled = !!(parsed.control && parsed.control.enabled);
+          s.control = { enabled };
           deviceState.set(deviceId, s);
-          return; // snapshot not forwarded to viewers
+          console.log("[ws] hello ctl=", enabled, deviceId);
+          return;
         }
 
-        // normal log line: persist + fan-out
+        // Snapshot (may also carry control)
+        if (parsed && parsed.type === "snapshot") {
+          s.snapshot = parsed;
+          if (parsed.control) {
+            const enabled = !!parsed.control.enabled;
+            s.control = { enabled };
+            console.log("[ws] snapshot ctl=", enabled, deviceId);
+          }
+          deviceState.set(deviceId, s);
+          return;
+        }
+
+        // Log line -> persist + fan-out
         appendLine(deviceId, text);
         deviceState.set(deviceId, s);
 
@@ -132,7 +156,7 @@ export function setupWs(server) {
       });
 
       ws.on("close", () => {
-        // keep last snapshot; online/offline is derived by age in getDeviceSummary()
+        ingesters.delete(deviceId);
         console.log("[ws] ingest disconnected:", deviceId);
       });
     }

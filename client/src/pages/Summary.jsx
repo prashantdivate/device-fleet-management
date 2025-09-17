@@ -105,12 +105,47 @@ export default function Summary() {
     return "";
   };
 
+  function RebootButton({ deviceId }) {
+    const host = window.location.hostname;
+    const [busy, setBusy] = React.useState(false);
+
+    async function doReboot() {
+      if (!deviceId) return;
+      if (!confirm("Reboot this device now?")) return;
+      setBusy(true);
+      try {
+        const r = await fetch(`http://${host}:4000/api/devices/${encodeURIComponent(deviceId)}/reboot`, {
+          method: "POST",
+          credentials: "include",
+        });
+        const j = await r.json().catch(() => ({}));
+        if (!r.ok) alert(`Server: ${r.status} ${r.statusText}\n${j?.error || ""}`);
+        else alert("Reboot command sent.");
+      } catch (e) {
+        alert(`Request failed: ${e.message}`);
+      } finally {
+        setBusy(false);
+      }
+    }
+
+    return (
+      <button onClick={doReboot} disabled={busy} style={{marginLeft:8}}>
+        {busy ? "Rebooting…" : "Reboot"}
+      </button>
+    );
+  }
+
+
   return (
     <div className="summary-grid">
       {/* LEFT: Device Summary */}
       <div className="card summary-card">
         <div className="card-header">
           <h3>Device Summary</h3>
+          <div>
+            {/* your Online/Offline pill here */}
+            <RebootButton deviceId={deviceId} />
+          </div>
           <span className={`pill ${online ? "pill-ok" : "pill-off"}`}>{online ? "Online" : "Offline"}</span>
         </div>
 

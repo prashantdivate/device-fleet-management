@@ -15,6 +15,8 @@ app.use(cors({ origin: true, credentials: true }));
 app.use(express.json({ limit: "2mb" }));
 app.use(morgan("dev"));
 
+console.log("[server] CONTROL_ENABLED =", process.env.CONTROL_ENABLED || "(unset)");
+
 import devicesRouter from "./api/devices.js";
 
 app.get("/health", (req, res) => res.json({ ok: true }));
