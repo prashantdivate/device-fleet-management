@@ -1,5 +1,5 @@
 /* ==== Base / Theme (light, balena-ish) ==== */
-:root { color-scheme: light; }
+/*:root { color-scheme: light; }*/
 * { box-sizing: border-box; }
 html, body, #root { height: 100%; margin: 0; }
 
@@ -9,23 +9,67 @@ body {
   color: #0f172a;            /* deep navy text */
 }
 
-/* ==== App Layout ==== */
-.page {
-  display: grid;
-  grid-template-columns: 240px 1fr;   /* left menu width */
-  gap: 16px;
-  padding: 16px;
-  height: 100vh;                      /* lock to viewport */
-  min-height: 0;
-  overflow: hidden;
+
+:root{
+  --navy:#1f3c5b; --tile:#e9eef6; --tile-border:#e3e9f2;
+  --text:#1f3c5b; --muted:#365477; --muted-active:#eef4fb;
 }
 
-.sidebar {
-  background: #ffffff;
-  border: 1px solid #e5e7eb;
-  border-radius: 12px;
-  padding: 16px;
+/* ===== New namespaced sidebar ===== */
+/* New shell from App.jsx */
+.shell { display: flex; min-height: 100vh; align-items: stretch !important; }
+.left-nav { width: 130px; border-right: 1px solid #eef2f6; background: #fff; }
+.deviceSidebar.exact{
+  width:130px; background:#fff; padding:8px 8px 20px;
+  border-right:1px solid #eef2f6;
 }
+.deviceSidebar .stack{ display:flex; flex-direction:column; gap:12px; }
+
+.deviceSidebar .nav-card{
+  background:var(--tile); color:var(--text);
+  border:1px solid var(--tile-border); border-radius:8px;
+  padding:10px 6px; height:94px; display:flex; align-items:center; justify-content:center;
+}
+.deviceSidebar .nav-card.is-active{
+  background:var(--navy); color:#fff; border-color:var(--navy);
+}
+.deviceSidebar .nav-inner{ display:flex; flex-direction:column; align-items:center; gap:8px; }
+.deviceSidebar .icon svg{ display:block; }
+
+.deviceSidebar .dsmono{ font-weight:800; font-size:18px; line-height:1; font-style:italic; }
+.deviceSidebar .dsmono .paren{ font-style:normal; font-weight:600; margin:0 1px; }
+.deviceSidebar .dsmono sup{ font-size:11px; position:relative; top:-0.3em; font-weight:700; }
+
+/* force two-line labels */
+.deviceSidebar .text{ display:flex; flex-direction:column; align-items:center; line-height:1.05; }
+.deviceSidebar .text .primary,
+.deviceSidebar .text .secondary{ display:block; }
+.deviceSidebar .text .primary{ font-weight:700; font-size:13px; }
+.deviceSidebar .text .secondary{ font-size:12px; color:var(--muted); margin-top:2px; }
+.deviceSidebar .nav-card.is-active .text .secondary{ color:var(--muted-active); }
+
+/* Main content column */
+.main-pane {
+  flex: 1;
+  min-width: 0;
+  display: block !important;          /* kill any old flex layout */
+  padding: 16px;
+  background: #f3f6fb;                /* optional light background */
+}
+
+/* Your Summary page grid should start at the top */
+.main-pane .summary-grid {
+  margin-top: 0 !important;
+  align-items: start !important;
+  justify-content: start !important;
+}
+
+/* Defensive: in case an old rule is forcing bottom alignment */
+.main-pane > * {
+  align-self: auto !important;
+}
+
+/* ==== App Layout ==== */
 .title { margin-top: 0; }
 
 .right {
@@ -67,13 +111,13 @@ body {
 .pill-off { background:#fef2f2; color:#b91c1c; border-color:#fecaca; }
 
 /* ==== Sidebar Nav ==== */
-.nav { display: flex; flex-direction: column; gap: 6px; margin-top: 4px; }
+/* .nav { display: flex; flex-direction: column; gap: 6px; margin-top: 4px; }
 .navlink {
   display: block; text-decoration: none; color: #334155;
   padding: 8px 10px; border-radius: 8px; border: 1px solid transparent;
 }
 .navlink:hover  { background: #f1f5f9; border-color: #e2e8f0; }
-.navlink.active { background: #e0ecff; color: #1d4ed8; border-color: #bfdbfe; }
+.navlink.active { background: #e0ecff; color: #1d4ed8; border-color: #bfdbfe; } */
 
 /* ==== Forms / Inputs ==== */
 .section { margin-bottom: 16px; }
@@ -96,11 +140,14 @@ button:hover { filter: brightness(1.05); }
 .summary-grid {
   display: grid;
   grid-template-columns: 1.1fr 1.4fr;
-  grid-template-rows: 1fr 1fr;
-  gap: 16px;
-  height: 100%;
+  grid-template-rows: auto auto;   /* ← don't force equal-height rows */
+  column-gap: 16px;                 /* keep horizontal spacing */
+  row-gap: 6px;                     /* control vertical spacing here */
+  height: auto;                     /* ← let content define height */
   min-height: 0;
+  align-content: start;             /* optional: pin rows to top of grid */
 }
+
 .summary-card { grid-column: 1; grid-row: 1 / span 2; }
 
 /* Fixed-height logs card (never grows) + terminal fills remainder */
@@ -111,11 +158,11 @@ button:hover { filter: brightness(1.05); }
   min-height: 420px;
   overflow: hidden;    /* logs scroll inside .logs-pane */
 }
-.term-card {
+/* .term-card {
   grid-column: 2; grid-row: 2;
   min-height: 0;
   flex: 1 1 auto;
-}
+} */
 
 /* ==== Logs pane (dark for readability) ==== */
 .logs-pane {
@@ -134,16 +181,25 @@ button:hover { filter: brightness(1.05); }
   border: 1px solid #d1d5db;
 }
 
+.logs-card, .term-card { margin: 0; }
 /* ==== Terminal ==== */
-.term-wrap { display: flex; flex-direction: column; height: 100%; }
-.term-toolbar { display: flex; justify-content: flex-end; margin-bottom: 8px; }
-.term-pane {
-  flex: 1;
-  overflow: hidden;
-  background: #000000;
+/* Terminal card layout */
+.term-card { display: flex; flex-direction: column; gap: 1px; }
+
+/* Inputs row above the terminal */
+.term-fields { display: grid; grid-template-columns: 1fr 160px 100px 1fr; gap: 10px; }
+
+/* The visible terminal area */
+.term-shell {
+  height: clamp(260px, 40vh, 560px);                  /* <- adjust as you like */
+  border: 1px solid #e5eaf1;
   border-radius: 8px;
-  border: 1px solid #d1d5db;
+  overflow: hidden;
+  background: #0e1520;            /* dark terminal bg */
 }
+/* Optional: if you render a root div, ensure it grows */
+.term-shell > div { height: 100%; }
+
 
 /* ==== Devices table ==== */
 .table-wrap { overflow: auto; }
@@ -167,7 +223,7 @@ button:hover { filter: brightness(1.05); }
 /* ===== Logs UI (pretty view) ===== */
 .log-toolbar {
   display:flex; align-items:center; justify-content:space-between;
-  margin-bottom:8px; gap:8px;
+  margin-bottom:2px; gap:8px;
 }
 .log-toolbar-left { display:flex; align-items:center; gap:6px; font-size:12px; color:#475569; }
 .conn-dot { width:8px; height:8px; border-radius:999px; background:#94a3b8; display:inline-block; }
@@ -255,11 +311,3 @@ button:hover { filter: brightness(1.05); }
   gap: 8px;
   margin-bottom: 8px;
 }
-.term-fields input {
-  padding: 8px 10px;
-  border-radius: 8px;
-  background: #ffffff;
-  border: 1px solid #d1d5db;
-  color: #0f172a;
-}
-

@@ -45,7 +45,7 @@ export default function Summary() {
       <div className="card term-card">
         <div className="card-header"><h3>Device Terminal</h3></div>
 
-        {/* Moved here: SSH fields (Summary page only) */}
+        {/* SSH fields */}
         <div className="term-fields">
           <input placeholder="SSH Host" value={sshHost} onChange={(e)=>setSshHost(e.target.value)} />
           <input placeholder="User" value={sshUser} onChange={(e)=>setSshUser(e.target.value)} />
@@ -53,7 +53,10 @@ export default function Summary() {
           <input placeholder="Password (prototype)" type="password" value={sshPass} onChange={(e)=>setSshPass(e.target.value)} />
         </div>
 
-        <SshTerminal />
+        {/* Give the terminal a container with height */}
+        <div className="term-shell">
+          <SshTerminal />
+        </div>
       </div>
     </div>
   );
