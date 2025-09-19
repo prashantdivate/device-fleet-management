@@ -2,6 +2,8 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useSession } from "../ctx/SessionContext.jsx";
 import LiveLogs from "../modules/LiveLogs.jsx";
 import SshTerminal from "../modules/SshTerminal.jsx";
+import rebootIconUrl from "./icons/shutdown.svg";
+import "./summary.css"
 
 export default function Summary() {
   const {
@@ -82,6 +84,7 @@ export default function Summary() {
   const osInfo     = snapshot?.os   || sum?.os   || null;
   const ips        = snapshot?.ips  || sum?.ips  || [];
   const runtime    = snapshot?.runtime || sum?.runtime || "";
+  const ostree    = snapshot?.ostree_rev || sum?.ostree_rev || "";
   const containers = snapshot?.containers || sum?.containers || [];
 
   // “Online” if summary says so, or if a snapshot arrived recently
@@ -130,6 +133,7 @@ export default function Summary() {
 
     return (
       <button onClick={doReboot} disabled={busy} style={{marginLeft:8}}>
+        <img src={rebootIconUrl} width={16} height={16} alt="" aria-hidden="true" />
         {busy ? "Rebooting…" : "Reboot"}
       </button>
     );
@@ -142,31 +146,57 @@ export default function Summary() {
       <div className="card summary-card">
         <div className="card-header">
           <h3>Device Summary</h3>
-          <div>
+          <div className="device-actions" style={{ display: "flex", justifyContent: "flex-end" }}>
             {/* your Online/Offline pill here */}
+            <span className={`pill ${online ? "pill-ok" : "pill-off"}`}>{online ? "Online" : "Offline"}</span>
             <RebootButton deviceId={deviceId} />
           </div>
-          <span className={`pill ${online ? "pill-ok" : "pill-off"}`}>{online ? "Online" : "Offline"}</span>
         </div>
 
-        <div style={{display:"grid", gridTemplateColumns:"1fr 1fr", gap:12, marginBottom:12}}>
+        <div style={{display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:12, marginBottom:12}}>
           <div>
-            <div style={{fontSize:12, color:"#64748b"}}>OS</div>
-            <div>{osInfo ? `${osInfo.name || ""}${osInfo.version ? " " + osInfo.version : ""}` : "—"}</div>
+            <div style={{fontSize:15, color:"#64748b"}}>FIRMWARE VERSION</div>
+            <div style={{marginTop: "6px"}}>{osInfo ? `${osInfo.version}` : "—"}</div>
           </div>
           <div>
-            <div style={{fontSize:12, color:"#64748b"}}>Kernel</div>
-            <div>{osInfo?.kernel || "—"}</div>
+            <div style={{fontSize:15, color:"#64748b"}}>KERNEL</div>
+            <div style={{display:"inline-flex",background:"#ffe7ef",color:"#6e1a37",borderRadius:"6px",padding:"2px 6px", marginTop: "6px", fontSize:14}} >
+              {osInfo?.kernel || "—"}</div>
           </div>
           <div>
-            <div style={{fontSize:12, color:"#64748b"}}>IP Address</div>
-            <div>{ips.length ? ips.map(ip => `${ip.if}: ${ip.cidr}`).join(", ") : "—"}</div>
+            <div style={{fontSize:15, color:"#64748b", fontFamily:"monospace"}}>IP ADDRESS</div>
+            <div style={{display:"inline-flex",background:"#ffe7ef",color:"#6e1a37",borderRadius:"6px",padding:"2px 6px", marginTop: "6px", fontSize:14}}>
+              {ips.length ? ips.map(ip => ip.cidr.split('/')[0]).join(", ") : "—"}
+            </div>
           </div>
           <div>
-            <div style={{fontSize:12, color:"#64748b"}}>Container Runtime</div>
-            <div>{runtime || "—"}</div>
+            <div style={{fontSize:15, color:"#64748b"}}>CONTAINER RUNTIME</div>
+            <div style={{fontSize:15}}>{runtime || "—"}</div>
           </div>
+          <div>
+            <div style={{fontSize:15, color:"#64748b"}}>OSTREE REVISION</div>
+            <div style={{display:"inline-flex",background:"#ffe7ef",color:"#6e1a37",borderRadius:"6px",padding:"2px 6px", marginTop: "6px", fontSize:14}}>{ostree || "—"}</div>
+          </div>
+          
         </div>
+
+        {/* <div >
+            <KV label="UUID"><CodeChip>70c082f</CodeChip></KV>
+            <KV label="TYPE">Raspberry Pi 4</KV>
+
+            <KV label="LAST ONLINE">Online (for 3 days)</KV>
+            <KV label="HOST OS VERSION">
+              <div>{osInfo ? `${osInfo.name || ""}${osInfo.version ? " " + osInfo.version : ""}` : "—"}</div>
+            </KV>
+            <KV label="CONTAINER RUNTIME"><div>{runtime || "—"}</div></KV>
+
+            <KV label="CURRENT RELEASE"><CodeChip>47e712e</CodeChip></KV>
+            <KV label="TARGET RELEASE"><CodeChip>db6f9be</CodeChip></KV>
+            <KV label="IP ADDRESS">
+              <div>{ips.length ? ips.map(ip => `${ip.if}: ${ip.cidr}`).join(", ") : "—"}</div> <Icon name="copy" size={16} />
+            </KV>
+          </div> */}
+
 
         <div className="card-header" style={{padding:"8px 0 8px 0"}}>
           <strong>Services</strong>

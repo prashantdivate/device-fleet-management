@@ -4,9 +4,10 @@
 html, body, #root { height: 100%; margin: 0; }
 
 body {
-  font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
-  background: #f6f8fb;       /* light canvas */
-  color: #0f172a;            /* deep navy text */
+  /* font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif; */
+  font-family:Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, 'Helvetica Neue', Arial;
+  background: #fff;       /* light canvas */
+  color: #0b1a2b;            /* deep navy text */
 }
 
 
@@ -129,17 +130,14 @@ input {
 .row { display: flex; gap: 8px; }
 .col { flex: 1; }
 
-button {
-  background: #1d4ed8; border: 1px solid #1d4ed8; color: #ffffff;
-  padding: 8px 12px; border-radius: 8px; cursor: pointer;
-}
+button {display:inline-flex;align-items:center;gap:8px;border-radius:18px;padding:6px 10px;border:1px solid #cfe0f2;background:#f0f6ff;color:#0b3a6e;font-weight:600;cursor:pointer}
 button:hover { filter: brightness(1.05); }
 .hint { font-size: 12px; color: #64748b; }
 
 /* ==== Summary page grid (left = device card, right = logs+terminal) ==== */
 .summary-grid {
   display: grid;
-  grid-template-columns: 1.1fr 1.4fr;
+  grid-template-columns: 1.8fr 1.4fr; /* left card width right-card width*/
   grid-template-rows: auto auto;   /* ← don't force equal-height rows */
   column-gap: 16px;                 /* keep horizontal spacing */
   row-gap: 6px;                     /* control vertical spacing here */
@@ -311,3 +309,5 @@ button:hover { filter: brightness(1.05); }
   gap: 8px;
   margin-bottom: 8px;
 }
+
+.codechip{display:inline-flex;background:#ffe7ef;color:#6e1a37;border-radius:6px;padding:2px 6px;font-family:ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;font-size:12px}
