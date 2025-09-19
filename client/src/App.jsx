@@ -29,6 +29,9 @@ function Layout() {
           <Route path="/updates" element={<Updates />} />
           <Route path="/settings" element={<Settings />} />
           <Route path="*" element={<Navigate to="/summary" replace />} />
+
+          {/* device names link with summary */}
+          <Route path="/summary/:id?" element={<Summary />} />
         </Routes>
       </main>
     </div>

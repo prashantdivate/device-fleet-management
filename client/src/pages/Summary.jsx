@@ -1,9 +1,10 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
+import { useParams, useSearchParams, useNavigate } from "react-router-dom";
 import { useSession } from "../ctx/SessionContext.jsx";
 import LiveLogs from "../modules/LiveLogs.jsx";
 import SshTerminal from "../modules/SshTerminal.jsx";
 import rebootIconUrl from "./icons/shutdown.svg";
-import "./summary.css"
+import "./summary.css";
 
 export default function Summary() {
   const {
@@ -13,6 +14,27 @@ export default function Summary() {
     sshPort, setSshPort,
     sshPass, setSshPass,
   } = useSession();
+
+  // --- NEW: adopt ID from URL ( /summary/:id or ?device_id= ) and keep URL in sync
+  const params = useParams();
+  const [search] = useSearchParams();
+  const navigate = useNavigate();
+
+  const routeId =
+    (params?.id && decodeURIComponent(params.id)) ||
+    search.get("device_id") ||
+    null;
+
+  useEffect(() => {
+    if (routeId && routeId !== deviceId) setDeviceId(routeId);
+  }, [routeId, deviceId, setDeviceId]);
+
+  useEffect(() => {
+    if (!deviceId) return;
+    if (params?.id !== deviceId) {
+      navigate(`/summary/${encodeURIComponent(deviceId)}`, { replace: true });
+    }
+  }, [deviceId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   /* ---------- LEFT CARD STATE ---------- */
   const [sum, setSum] = useState(null);
@@ -36,7 +58,7 @@ export default function Summary() {
         const j = await r.json();
         if (!stop) setSum(j);
       } catch (e) {
-        if (!stop) setSum((prev) => prev || null); // don't nuke a good WS snapshot
+        if (!stop) setSum((prev) => prev || null);
       } finally {
         if (!stop) setLoading(false);
       }
@@ -47,10 +69,9 @@ export default function Summary() {
     return () => { stop = true; clearInterval(t); };
   }, [deviceId, apiBase]);
 
-  // WS fallback: listen for {type:"snapshot"} on /live and update immediately
+  // WS live snapshots
   useEffect(() => {
     if (!deviceId) return;
-    // close any previous
     try { wsRef.current?.close(); } catch {}
     const wsUrl = `${proto === "https:" ? "wss" : "ws"}://${host}:4000/live?device_id=${encodeURIComponent(deviceId)}`;
     const ws = new WebSocket(wsUrl);
@@ -60,23 +81,12 @@ export default function Summary() {
       try {
         const obj = JSON.parse(ev.data);
         if (obj && obj.type === "snapshot") {
-          setSum((prev) => {
-            // keep server fields if present; store the latest snapshot
-            const merged = { ...(prev || {}), snapshot: obj, online: true, _serverTs: Date.now() };
-            return merged;
-          });
+          setSum((prev) => ({ ...(prev || {}), snapshot: obj, online: true, _serverTs: Date.now() }));
         }
-      } catch {
-        /* ignore non-JSON log lines */
-      }
+      } catch { /* non-JSON log lines */ }
     };
-    ws.onclose = () => { /* noop */ };
-    ws.onerror = () => { /* noop */ };
 
-    return () => {
-      try { ws.close(); } catch {}
-      wsRef.current = null;
-    };
+    return () => { try { ws.close(); } catch {}; wsRef.current = null; };
   }, [deviceId, host, proto]);
 
   // Accept both shapes (top-level or nested under snapshot)
@@ -84,10 +94,10 @@ export default function Summary() {
   const osInfo     = snapshot?.os   || sum?.os   || null;
   const ips        = snapshot?.ips  || sum?.ips  || [];
   const runtime    = snapshot?.runtime || sum?.runtime || "";
-  const ostree    = snapshot?.ostree_rev || sum?.ostree_rev || "";
+  const ostree     = snapshot?.ostree_rev || sum?.ostree_rev || "";
   const containers = snapshot?.containers || sum?.containers || [];
 
-  // “Online” if summary says so, or if a snapshot arrived recently
+  // Online status
   const online = useMemo(() => {
     if (sum?.online) return true;
     const ts = snapshot?._serverTs || sum?._serverTs;
@@ -98,7 +108,6 @@ export default function Summary() {
     if (!img) return "—";
     const i = img.lastIndexOf(":");
     return i > 0 ? img.slice(i + 1) : "—";
-    // (you can swap to digest parsing if you prefer)
   };
 
   const statusClass = (text) => {
@@ -139,7 +148,6 @@ export default function Summary() {
     );
   }
 
-
   return (
     <div className="summary-grid">
       {/* LEFT: Device Summary */}
@@ -147,7 +155,6 @@ export default function Summary() {
         <div className="card-header">
           <h3>Device Summary</h3>
           <div className="device-actions" style={{ display: "flex", justifyContent: "flex-end" }}>
-            {/* your Online/Offline pill here */}
             <span className={`pill ${online ? "pill-ok" : "pill-off"}`}>{online ? "Online" : "Offline"}</span>
             <RebootButton deviceId={deviceId} />
           </div>
@@ -161,7 +168,8 @@ export default function Summary() {
           <div>
             <div style={{fontSize:15, color:"#64748b"}}>KERNEL</div>
             <div style={{display:"inline-flex",background:"#ffe7ef",color:"#6e1a37",borderRadius:"6px",padding:"2px 6px", marginTop: "6px", fontSize:14}} >
-              {osInfo?.kernel || "—"}</div>
+              {osInfo?.kernel || "—"}
+            </div>
           </div>
           <div>
             <div style={{fontSize:15, color:"#64748b", fontFamily:"monospace"}}>IP ADDRESS</div>
@@ -175,28 +183,11 @@ export default function Summary() {
           </div>
           <div>
             <div style={{fontSize:15, color:"#64748b"}}>OSTREE REVISION</div>
-            <div style={{display:"inline-flex",background:"#ffe7ef",color:"#6e1a37",borderRadius:"6px",padding:"2px 6px", marginTop: "6px", fontSize:14}}>{ostree || "—"}</div>
+            <div style={{display:"inline-flex",background:"#ffe7ef",color:"#6e1a37",borderRadius:"6px",padding:"2px 6px", marginTop: "6px", fontSize:14}}>
+              {ostree || "—"}
+            </div>
           </div>
-          
         </div>
-
-        {/* <div >
-            <KV label="UUID"><CodeChip>70c082f</CodeChip></KV>
-            <KV label="TYPE">Raspberry Pi 4</KV>
-
-            <KV label="LAST ONLINE">Online (for 3 days)</KV>
-            <KV label="HOST OS VERSION">
-              <div>{osInfo ? `${osInfo.name || ""}${osInfo.version ? " " + osInfo.version : ""}` : "—"}</div>
-            </KV>
-            <KV label="CONTAINER RUNTIME"><div>{runtime || "—"}</div></KV>
-
-            <KV label="CURRENT RELEASE"><CodeChip>47e712e</CodeChip></KV>
-            <KV label="TARGET RELEASE"><CodeChip>db6f9be</CodeChip></KV>
-            <KV label="IP ADDRESS">
-              <div>{ips.length ? ips.map(ip => `${ip.if}: ${ip.cidr}`).join(", ") : "—"}</div> <Icon name="copy" size={16} />
-            </KV>
-          </div> */}
-
 
         <div className="card-header" style={{padding:"8px 0 8px 0"}}>
           <strong>Services</strong>
@@ -233,37 +224,29 @@ export default function Summary() {
         </div>
       </div>
 
-      {/* RIGHT: Logs (UNCHANGED) */}
+      {/* RIGHT: Logs */}
       <div className="card logs-card">
         <div className="card-header">
-          <h3>Logs</h3>
-          <span className="pill">{deviceId || "—"}</span>
+          <h3>Live logs</h3>
         </div>
 
         <div className="logs-controls">
           <label style={{fontSize:12, color:"#334155"}}>Device ID</label>
-          <input
-            className="id-input"
-            value={deviceId}
-            onChange={(e)=>setDeviceId(e.target.value)}
-            placeholder="MACHINE_ID or label"
-          />
+          <span className="pill">{deviceId || "—"}</span>
         </div>
 
         <LiveLogs />
       </div>
 
-      {/* RIGHT: Terminal (UNCHANGED) */}
+      {/* RIGHT: Terminal */}
       <div className="card term-card">
         <div className="card-header"><h3>Device Terminal</h3></div>
-
         <div className="term-fields">
           <input placeholder="SSH Host" value={sshHost} onChange={(e)=>setSshHost(e.target.value)} />
           <input placeholder="User" value={sshUser} onChange={(e)=>setSshUser(e.target.value)} />
           <input placeholder="Port" value={sshPort} onChange={(e)=>setSshPort(e.target.value)} />
           <input placeholder="Password (prototype)" type="password" value={sshPass} onChange={(e)=>setSshPass(e.target.value)} />
         </div>
-
         <div className="term-shell">
           <SshTerminal />
         </div>
