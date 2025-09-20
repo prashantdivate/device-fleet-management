@@ -11,7 +11,7 @@ const keyToPath = {
   "service-variables": "/devices",
   location: "/devices",
   OTA: "/updates",
-  diagnostics: "/logs",
+  diagnostics: "/diagnostics",
 };
 
 // pick the best matching key from current pathname

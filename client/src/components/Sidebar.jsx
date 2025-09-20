@@ -33,7 +33,7 @@ const NAV_ITEMS = [
   { key: 'service-variables',iconFile: 'service',      primary: 'Device Service',  secondary: 'Variables' },
   { key: 'location',         iconFile: 'location',     primary: 'Location' },
   { key: 'OTA',          iconFile: 'update',      primary: 'OTA' },
-  { key: 'diagnostics',      iconFile: 'diagnostics',  primary: 'Diagnostics',     secondary: 'Experimental' },
+  { key: 'diagnostics',      iconFile: 'diagnostics',  primary: 'Device',     secondary: 'diagnostics' },
 ];
 
 function cx(...cls) { return cls.filter(Boolean).join(' '); }

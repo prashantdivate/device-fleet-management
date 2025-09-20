@@ -1,0 +1,133 @@
+/* --- Diagnostics layout --- */
+.diag-grid {
+  display: grid;
+  grid-template-columns: 1.5fr 0.9fr;
+  gap: 16px;
+}
+
+.diag-kpis {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.kpi {
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  padding: 12px;
+}
+
+.kpi-label {
+  font-size: 12px;
+  color: #64748b;
+  margin-bottom: 4px;
+  letter-spacing: .02em;
+  text-transform: uppercase;
+}
+
+.kpi-value {
+  font-weight: 700;
+  font-size: 20px;
+  margin-bottom: 6px;
+}
+
+.kpi-sub {
+  font-size: 12px;
+  color: #64748b;
+  margin-top: 4px;
+}
+
+/* meters */
+.meter {
+  position: relative;
+  height: 10px;
+  border-radius: 999px;
+  background: #f1f5f9;
+  overflow: hidden;
+  border: 1px solid #e5e7eb;
+}
+.meter-lg { height: 12px; }
+.meter-fill {
+  height: 100%;
+  width: 0%;
+  border-radius: 999px;
+  transition: width .3s ease;
+}
+
+/* tiny load rows */
+.meter-row {
+  display: grid;
+  grid-template-columns: 28px 1fr 48px;
+  gap: 8px;
+  align-items: center;
+  margin: 4px 0;
+}
+.meter-label { font-size: 12px; color: #64748b; text-align: right; }
+.meter-val   { font-size: 12px; color: #0f172a; text-align: right; }
+
+/* services side card */
+.diag-services {
+  padding: 12px;
+}
+.svc-stat-row {
+  display: grid;
+  grid-template-columns: 16px 1fr auto;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 0;
+  border-bottom: 1px dashed #e5e7eb;
+}
+.svc-stat-row:last-child { border-bottom: none; }
+
+.svc-dot {
+  width: 10px; height: 10px; border-radius: 999px; display: inline-block;
+}
+.svc-dot.ok   { background: #16a34a; }
+.svc-dot.warn { background: #f59e0b; }
+.svc-dot.bad  { background: #dc2626; }
+.svc-dot.grey { background:#94a3b8; }
+
+.svc-label { color: #0f172a; font-size: 14px; }
+.svc-count { font-weight: 700; color: #0f172a; }
+.svc-total { margin-top: 8px; font-size: 12px; color: #64748b; }
+
+.failed-list { margin: 0; padding-left: 16px; }
+.failed-list li { margin: 4px 0; font-size: 13px; color: #0f172a; }
+.failed-list code {
+  background:#f1f5f9; border:1px solid #e5e7eb; border-radius:6px; padding:2px 6px;
+}
+.failed-desc { color:#64748b; }
+
+
+/* ===== Diagnostics refinements ===== */
+
+/* threshold colors for meters */
+.meter-fill.ok   { background:#16a34a; }
+.meter-fill.warn { background:#f59e0b; }
+.meter-fill.bad  { background:#dc2626; }
+.meter-fill.info { background:#60a5fa; }
+
+/* stacked services meter */
+.stacked {
+  display:flex;
+  height:10px;
+  border-radius:999px;
+  background:#f1f5f9;
+  border:1px solid #e5e7eb;
+  overflow:hidden;
+}
+.seg { height:100%; }
+.seg.ok    { background:#16a34a; }
+.seg.warn  { background:#f59e0b; }
+.seg.bad   { background:#dc2626; }
+.seg.idle  { background:#94a3b8; }
+
+/* legend */
+.legend { display:flex; align-items:center; flex-wrap:wrap; gap:12px; font-size:12px; color:#64748b; }
+.legend .dot { width:10px; height:10px; border-radius:999px; display:inline-block; margin-right:6px; vertical-align:middle; }
+.legend .dot.ok   { background:#16a34a; }
+.legend .dot.warn { background:#f59e0b; }
+.legend .dot.bad  { background:#dc2626; }
+.legend .dot.idle { background:#94a3b8; }
+

@@ -8,7 +8,7 @@ import DeviceSidebarRouter from "./components/DeviceSidebarRouter.jsx";
 // pages
 import Summary from "./pages/Summary.jsx";
 import Devices from "./pages/Devices.jsx";
-import Logs from "./pages/Logs.jsx";
+import Diagnostics from "./pages/Diagnostics.jsx";
 import Terminal from "./pages/Terminal.jsx";
 import Updates from "./pages/Updates.jsx";
 import Settings from "./pages/Settings.jsx";
@@ -24,7 +24,7 @@ function Layout() {
           <Route index element={<Navigate to="/summary" replace />} />
           <Route path="/summary" element={<Summary />} />
           <Route path="/devices" element={<Devices />} />
-          <Route path="/logs" element={<Logs />} />
+          <Route path="/diagnostics" element={<Diagnostics />} />
           <Route path="/terminal" element={<Terminal />} />
           <Route path="/updates" element={<Updates />} />
           <Route path="/settings" element={<Settings />} />
