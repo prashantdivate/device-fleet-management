@@ -7,10 +7,10 @@ import DeviceSidebar from "./Sidebar.jsx"; // <- the exact-look sidebar we built
 const keyToPath = {
   summary: "/summary",
   "device-config": "/settings",
-  "device-variables": "/devices",
+  "device-overview": "/devices",
   "service-variables": "/devices",
   location: "/devices",
-  actions: "/updates",
+  OTA: "/updates",
   diagnostics: "/logs",
 };
 
@@ -33,7 +33,7 @@ export default function DeviceSidebarRouter() {
   const navigate = useNavigate();
 
   function handleNavigate(key) {
-    const path = keyToPath[key] || "/summary";
+    const path = keyToPath[key] || "/devices";
     if (path !== pathname) navigate(path);
   }
 

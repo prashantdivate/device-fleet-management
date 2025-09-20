@@ -1,0 +1,148 @@
+/* Container spacing */
+.updates-body { padding: 12px; }
+
+/* Header with badge */
+.updates-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.updates-header .updates-badge {
+  margin-left: auto;
+}
+.updates-badge {
+  padding: 2px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  color: #fff;
+  line-height: 1.8;
+}
+.updates-badge.ok  { background: #16a34a; } /* green */
+.updates-badge.bad { background: #b91c1c; } /* red */
+
+/* Card reusing your design tokens */
+.updates-card {
+  background: var(--tile);
+  color: var(--text);
+  border: 1px solid var(--tile-border);
+  border-radius: 12px;
+  padding: 12px;
+  position: relative;
+  overflow: hidden;
+}
+
+/* Inner layout */
+.nav-inner { display: grid; gap: 12px; }
+
+/* Form grid */
+.updates-form {
+  display: grid;
+  grid-template-columns: 1fr 1fr auto; /* DS | Target | Buttons */
+  gap: 12px;
+  align-items: end;
+}
+@media (max-width: 900px) {
+  .updates-form {
+    grid-template-columns: 1fr;
+  }
+}
+
+.updates-field label {
+  font-size: 12px;
+  display: block;
+  margin-bottom: 4px;
+  color: var(--text);
+}
+.updates-select {
+  width: 100%;
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1px solid var(--tile-border);
+  background: #fff;
+  color: #111;
+}
+
+/* Buttons */
+.btn {
+  padding: 8px 12px;
+  border-radius: 8px;
+  border: none;
+  font-weight: 600;
+  color: #fff;
+  cursor: pointer;
+}
+.btn-primary { background: #2563eb; }            /* blue */
+.btn-dark    { background: #334155; }            /* slate */
+.btn-warn    { background: #d97706; }            /* amber */
+.btn-muted   { background: #6b7280; }            /* gray */
+.btn-disabled{
+  background: #94a3b8;
+  cursor: not-allowed;
+}
+.btn-outline {
+  background: #111827;
+  border: 1px solid var(--tile-border);
+  color: #fff;
+}
+
+/* Group of main action buttons */
+.updates-actions-main {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+/* Logs */
+.updates-logs-wrap { margin-top: 12px; }
+.updates-logs-wrap > label {
+  font-size: 12px;
+  display: block;
+  margin-bottom: 4px;
+}
+.updates-logs {
+  height: 260px;
+  overflow: auto;
+  border: 1px solid var(--tile-border);
+  border-radius: 8px;
+  background: #0b1220;
+  color: #b7ffbd;
+  padding: 10px;
+  font-size: 13px;
+  line-height: 1.35;
+  white-space: pre-wrap;
+}
+
+/* Footer actions */
+.updates-actions {
+  margin-top: 12px;
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+/* ---- Glossy + shimmer when connected ---- */
+.nav-card.is-active {
+  /* keep your active colors if you want:
+     background: var(--navy); color: #fff; border-color: var(--navy);
+   */
+}
+
+.nav-card.is-active::after{
+  content:"";
+  position:absolute; inset:-20%;
+  background: linear-gradient(115deg,
+    rgba(255,255,255,0) 20%,
+    rgba(255,255,255,.35) 50%,
+    rgba(255,255,255,0) 80%);
+  transform: translateX(-120%);
+  animation: updates_shimmer 2.8s linear infinite;
+  pointer-events:none;
+}
+@keyframes updates_shimmer { to { transform: translateX(0.00000001%); } }
+
+/* Ensure any SVG icons inside follow text color */
+.deviceSidebar .icon svg,
+.deviceSidebar .icon svg * {
+  fill: currentColor;
+  stroke: currentColor;
+}
