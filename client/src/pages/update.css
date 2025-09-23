@@ -135,10 +135,8 @@
     rgba(255,255,255,.35) 50%,
     rgba(255,255,255,0) 80%);
   transform: translateX(-120%);
-  animation: updates_shimmer 2.8s linear infinite;
   pointer-events:none;
 }
-@keyframes updates_shimmer { to { transform: translateX(0.00000001%); } }
 
 /* Ensure any SVG icons inside follow text color */
 .deviceSidebar .icon svg,

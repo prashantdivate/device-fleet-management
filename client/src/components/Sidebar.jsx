@@ -6,9 +6,9 @@ import { Icon } from './icons.jsx' // kept as fallback (optional)
 // If you use SVGR, they'll be React components.
 import icondev from '../pages/icons/devices.svg'
 import iconcloud from '../pages/icons/cloud.svg'
-import iconconfig from '../pages/icons/setting.svg'
-import iconservice from '../pages/icons/setting2.svg'
-import iconlocation from '../pages/icons/terminal.svg'
+import iconconfig from '../pages/icons/setting2.svg'
+import iconservice from '../pages/icons/system.svg'
+import iconlocation from '../pages/icons/location.svg'
 import iconupdate from '../pages/icons/update.svg'
 import icondiagnostics from '../pages/icons/diagnostics.svg'
 

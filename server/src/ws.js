@@ -2,172 +2,278 @@
 import { WebSocketServer } from "ws";
 import fs from "fs";
 import path from "path";
+import { loadCustomLocations, saveCustomLocations } from "./store.js";
+
+// If your Node < 18, uncomment the next 2 lines:
+// import fetchPkg from "node-fetch";
+// const fetch = globalThis.fetch || fetchPkg;
+
+/**
+ * Lightweight IP → geo via ip-api.com (city-level, rate-limited).
+ * Returns: { lat, lon, accuracy_km, city?, country?, _provider }
+ */
+async function geoFromIp(ip) {
+  if (!ip) return null;
+  // ignore private/link-local ranges
+  if (/^(10\.|192\.168\.|172\.(1[6-9]|2\d|3[0-1])\.|169\.254\.)/.test(ip)) return null;
+
+  const url = `http://ip-api.com/json/${encodeURIComponent(ip)}?fields=status,message,lat,lon,city,country`;
+  try {
+    const r = await fetch(url);
+    const j = await r.json();
+    if (j.status !== "success") return null;
+    return { lat: j.lat, lon: j.lon, accuracy_km: 25, city: j.city, country: j.country, _provider: "ip-api" };
+  } catch {
+    return null;
+  }
+}
 
 /**
  * WS hub:
  * - /ingest  : device agents send JSON lines (+ periodic {type:'snapshot'})
- * - /live    : browsers subscribe to live logs
- * Also keeps a tiny in-memory snapshot store for Summary + Devices list.
+ * - /live    : browsers subscribe to live logs (optionally per device)
+ * Keeps small in-memory state per device and writes raw logs to disk.
  */
 
 const LOG_ROOT = path.join(process.cwd(), "logs");
+fs.mkdirSync(LOG_ROOT, { recursive: true });
 
-// deviceId -> { device_id, snapshot?, _serverTs, control? }
+// deviceId -> state
+// state = {
+//   device_id, name, online,
+//   auto_geo?, device_geo?, custom_geo?,
+//   snapshot?, os?, ips?, containers?, runtime?,
+//   _serverTs
+// }
 const deviceState = new Map();
+const customLoc = loadCustomLocations();
 
-// deviceId -> Set<WebSocket> (viewers)
+// viewers
+// deviceId -> Set<WebSocket> (receives only that device's lines)
 const viewers = new Map();
+// global viewers (receive all lines)
+const globalViewers = new Set();
 
-function appendLine(deviceId, line) {
-  try {
-    const dir = path.join(LOG_ROOT, deviceId);
-    fs.mkdirSync(dir, { recursive: true });
-    const day = new Date().toISOString().slice(0, 10);
-    const file = path.join(dir, `${day}.jsonl`);
-    fs.appendFile(file, line + "\n", () => {});
-  } catch (e) {
-    console.error("[ws] append error:", e);
+function extractIp(req) {
+  let ip = req.socket?.remoteAddress || "";
+  // If behind a trusted proxy, honor X-Forwarded-For
+  if (process.env.TRUST_PROXY === "1") {
+    const xff = req.headers["x-forwarded-for"];
+    if (xff) ip = String(xff).split(",")[0].trim();
   }
+  // normalize IPv6-mapped IPv4 (::ffff:1.2.3.4)
+  const m = ip && ip.match(/::ffff:(\d+\.\d+\.\d+\.\d+)$/);
+  if (m) ip = m[1];
+  return ip;
 }
 
-/** Summary for one device (used by REST /summary) */
-export function getDeviceSummary(deviceId) {
-  const s = deviceState.get(deviceId);
-  if (!s) return { device_id: deviceId, online: false };
+function ensureState(device_id) {
+  if (!deviceState.has(device_id)) {
+    deviceState.set(device_id, { device_id, online: false, _serverTs: Date.now() });
+  }
+  const st = deviceState.get(device_id);
+  const c = customLoc[device_id];
+  st.custom_geo = c ? { lat: c.lat, lon: c.lon, label: c.label, source: "custom" } : undefined;
+  return st;
+}
 
-  const age = Date.now() - (s._serverTs || 0);
-  const online = age < 20_000;
+function computeGeo(st) {
+  // priority: custom > device > auto
+  return st.custom_geo || st.device_geo || st.auto_geo || null;
+}
 
+function writeLogLine(device_id, text) {
+  const f = path.join(LOG_ROOT, `${device_id}.jsonl`);
+  fs.appendFile(f, text + "\n", () => {});
+}
+
+// ---------- Public API used by REST layer ----------
+export function listDevices() {
+  const out = [];
+  for (const st of deviceState.values()) {
+    out.push({
+      device_id: st.device_id,
+      name: st.name || st.device_id,
+      online: !!st.online,
+      geo: computeGeo(st),
+      os: st.os,
+      ips: st.ips,
+      runtime: st.runtime,
+      containers: st.containers,
+      snapshot: st.snapshot,
+      _serverTs: st._serverTs,
+      control: st.control || { enabled: false },
+    });
+  }
+  out.sort((a, b) => Number(b.online) - Number(a.online));
+  return out;
+}
+
+export function getDeviceSummary(id) {
+  const st = deviceState.get(id);
+  if (!st) return { error: "not_found" };
   return {
-    device_id: deviceId,
-    online,
-    snapshot: s.snapshot || null,
-    os: s.snapshot?.os || null,
-    ips: s.snapshot?.ips || [],
-    runtime: s.snapshot?.runtime || "",
-    containers: s.snapshot?.containers || [],
-    _serverTs: s._serverTs || Date.now(),
-    control: s.control || { enabled: false },
+    device_id: st.device_id,
+    name: st.name || st.device_id,
+    online: !!st.online,
+    geo: computeGeo(st),
+    os: st.os,
+    ips: st.ips,
+    runtime: st.runtime,
+    containers: st.containers,
+    snapshot: st.snapshot,
+    _serverTs: st._serverTs,
+    control: st.control || { enabled: false },
   };
 }
 
-/** List of devices (used by REST GET /api/devices) */
-export function listDevices() {
-  const rows = [];
-  const now = Date.now();
-
-  for (const [id, s] of deviceState.entries()) {
-    const last = s._serverTs || 0;
-    const online = now - last < 20_000;
-
-    const os = s.snapshot?.os || {};
-    const osName = os.name || "";
-    const osVersion = os.version || osName;
-    const osVariant =
-      /dev(elopment)?/i.test(os.version || "") || /dev/i.test(os.build || "")
-        ? "development"
-        : "";
-
-    // We don’t force a hostname in the agent—fall back to id.
-    const name =
-      s.snapshot?.hostname ||
-      s.snapshot?.os?.hostname ||
-      id; // safe fallback
-
-    rows.push({
-      device_id: id,
-      name,
-      uuid: id.slice(0, 6),
-      online,
-      lastSeen: last,
-      osVersion,
-      osVariant,
-    });
-  }
-
-  // Most recent first
-  rows.sort((a, b) => (b.lastSeen || 0) - (a.lastSeen || 0));
-  return rows;
+export function setCustomLocation(device_id, { lat, lon, label }) {
+  if (!Number.isFinite(lat) || !Number.isFinite(lon)) throw new Error("invalid lat/lon");
+  customLoc[device_id] = { lat, lon, label, updatedAt: new Date().toISOString() };
+  saveCustomLocations(customLoc);
+  const st = ensureState(device_id);
+  st.custom_geo = { lat, lon, label, source: "custom" };
+  st._serverTs = Date.now();
+  return computeGeo(st);
 }
 
+export function unsetCustomLocation(device_id) {
+  delete customLoc[device_id];
+  saveCustomLocations(customLoc);
+  const st = ensureState(device_id);
+  st.custom_geo = undefined;
+  st._serverTs = Date.now();
+  return computeGeo(st);
+}
+
+// ---------- WebSocket setup ----------
 export function setupWs(server) {
   const wss = new WebSocketServer({ noServer: true });
 
   server.on("upgrade", (req, socket, head) => {
-    let url;
-    try {
-      url = new URL(req.url, `http://${req.headers.host}`);
-    } catch {
+    const url = new URL(req.url, `http://${req.headers.host}`);
+    const pathname = url.pathname;
+
+    if (pathname !== "/ingest" && pathname !== "/live") {
       socket.destroy();
       return;
     }
-    const pathname = url.pathname;
-    if (pathname !== "/ingest" && pathname !== "/live") return;
-
     wss.handleUpgrade(req, socket, head, (ws) => {
-      ws.pathname = pathname;
-      ws.deviceId = url.searchParams.get("device_id") || "unknown";
-      wss.emit("connection", ws, req);
+      wss.emit("connection", ws, req, pathname);
     });
   });
 
-  wss.on("connection", (ws) => {
-    const { pathname, deviceId } = ws;
-
+  wss.on("connection", async (ws, req, pathname) => {
     if (pathname === "/live") {
-      let set = viewers.get(deviceId);
-      if (!set) viewers.set(deviceId, (set = new Set()));
-      set.add(ws);
+      // Viewer connections: optional ?device_id=abc to filter
+      const url = new URL(req.url, `http://${req.headers.host}`);
+      const deviceId = url.searchParams.get("device_id");
 
-      ws.on("close", () => {
-        set.delete(ws);
-        if (set.size === 0) viewers.delete(deviceId);
-      });
+      if (deviceId) {
+        if (!viewers.has(deviceId)) viewers.set(deviceId, new Set());
+        viewers.get(deviceId).add(ws);
+        ws.on("close", () => {
+          const set = viewers.get(deviceId);
+          if (set) set.delete(ws);
+        });
+      } else {
+        globalViewers.add(ws);
+        ws.on("close", () => globalViewers.delete(ws));
+      }
       return;
     }
 
     if (pathname === "/ingest") {
-      console.log("[ws] ingest connected:", deviceId);
+      const url = new URL(req.url, `http://${req.headers.host}`);
+      const deviceId = url.searchParams.get("device_id") || "unknown";
+      const st = ensureState(deviceId);
+      st.online = true;
+      st._serverTs = Date.now();
 
-      // ensure state exists
-      if (!deviceState.has(deviceId)) {
-        deviceState.set(deviceId, {
-          device_id: deviceId,
-          snapshot: null,
-          _serverTs: Date.now(),
-          control: { enabled: process.env.CONTROL_ENABLED === "1" },
-        });
-      }
+      // Best-effort: geolocate the socket/forwarded IP on connect
+      (async () => {
+        const ip = extractIp(req);
+        const auto = await geoFromIp(ip);
+        if (auto) {
+          st.auto_geo = { lat: auto.lat, lon: auto.lon, accuracy_km: auto.accuracy_km, ip, source: "ip" };
+          st._serverTs = Date.now();
+        }
+      })().catch(() => {});
 
-      ws.on("message", (data) => {
-        const text = data.toString();
-        const s = deviceState.get(deviceId) || { device_id: deviceId };
-        s._serverTs = Date.now();
+      ws.on("message", (buf) => {
+        const text = buf.toString("utf8").trim();
+        if (!text) return;
 
-        let parsed = null;
+        // Persist raw line
+        writeLogLine(deviceId, text);
+
+        // Try to parse JSON
+        let obj = null;
         try {
-          parsed = JSON.parse(text);
-        } catch {}
-
-        if (parsed && parsed.type === "snapshot") {
-          s.snapshot = parsed;
-          deviceState.set(deviceId, s);
-          return; // snapshots are not broadcast to viewers
+          obj = JSON.parse(text);
+        } catch {
+          /* non-JSON log line; still relay */
         }
 
-        appendLine(deviceId, text);
-        deviceState.set(deviceId, s);
+        if (obj && typeof obj === "object") {
+          // HELLO (once per connect)
+          if (obj.type === "hello") {
+            st.name = obj.name || deviceId;
+            st.control = { enabled: !!obj.allow_control };
+            st._serverTs = Date.now();
+          }
 
+          // SNAPSHOT (periodic)
+          if (obj.type === "snapshot") {
+            st.snapshot = obj;
+            st.os = obj.os;
+            st.ips = obj.ips;
+            st.runtime = obj.runtime;
+            st.containers = obj.containers;
+
+            // If agent provided a public IPv4, geolocate it (works even on LAN)
+            if (obj.public_ip) {
+              (async () => {
+                const auto = await geoFromIp(obj.public_ip);
+                if (auto) {
+                  st.auto_geo = {
+                    lat: auto.lat,
+                    lon: auto.lon,
+                    accuracy_km: auto.accuracy_km,
+                    ip: obj.public_ip,
+                    source: "ip",
+                  };
+                  st._serverTs = Date.now();
+                }
+              })().catch(() => {});
+            }
+
+            // If the agent ever adds precise coordinates (GNSS/Wi-Fi), honor them:
+            // obj.geo = { lat, lon, accuracy_m?, source? }
+            if (obj.geo && Number.isFinite(obj.geo.lat) && Number.isFinite(obj.geo.lon)) {
+              st.device_geo = { ...obj.geo, source: obj.geo.source || "device" };
+              st._serverTs = Date.now();
+            }
+          }
+        }
+
+        // Fan out to device-specific viewers
         const set = viewers.get(deviceId);
         if (set) {
           for (const v of set) {
             if (v.readyState === v.OPEN) v.send(text);
           }
         }
+        // And to global viewers
+        for (const v of globalViewers) {
+          if (v.readyState === v.OPEN) v.send(text);
+        }
       });
 
       ws.on("close", () => {
-        console.log("[ws] ingest disconnected:", deviceId);
+        const st = ensureState(deviceId);
+        st.online = false;              // keep last snapshot & geo for UI
+        st._serverTs = Date.now();
       });
     }
   });

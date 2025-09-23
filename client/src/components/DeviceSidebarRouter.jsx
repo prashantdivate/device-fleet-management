@@ -9,7 +9,7 @@ const keyToPath = {
   "device-config": "/settings",
   "device-overview": "/devices",
   "service-variables": "/devices",
-  location: "/devices",
+  location: "/map",
   OTA: "/updates",
   diagnostics: "/diagnostics",
 };

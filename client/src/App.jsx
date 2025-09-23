@@ -12,6 +12,7 @@ import Diagnostics from "./pages/Diagnostics.jsx";
 import Terminal from "./pages/Terminal.jsx";
 import Updates from "./pages/Updates.jsx";
 import Settings from "./pages/Settings.jsx";
+import Map from "./pages/map.jsx";
 
 function Layout() {
   return (
@@ -28,6 +29,7 @@ function Layout() {
           <Route path="/terminal" element={<Terminal />} />
           <Route path="/updates" element={<Updates />} />
           <Route path="/settings" element={<Settings />} />
+          <Route path="/map" element={<Map />} />
           <Route path="*" element={<Navigate to="/summary" replace />} />
 
           {/* device names link with summary */}
