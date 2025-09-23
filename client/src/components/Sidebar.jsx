@@ -4,7 +4,7 @@ import { Icon } from './icons.jsx' // kept as fallback (optional)
 // === Import your custom SVGs here ===
 // If you use URL-style imports (CRA/Vite defaults), these will be strings.
 // If you use SVGR, they'll be React components.
-import icondev from '../pages/icons/devices.svg'
+import icondev from '../pages/icons/summary.svg'
 import iconcloud from '../pages/icons/cloud.svg'
 import iconconfig from '../pages/icons/setting2.svg'
 import iconservice from '../pages/icons/system.svg'

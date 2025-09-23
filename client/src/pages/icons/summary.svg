@@ -1,0 +1,38 @@
+<svg width="64" height="64" viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="title2 desc2">
+  <title id="title2">System Summary</title>
+  <desc id="desc2">Monitor with mini charts inside a rounded square tile</desc>
+
+  <defs>
+    <linearGradient id="tile2" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#8ED0FF"></stop>
+      <stop offset="100%" stop-color="#5AA9F7"></stop>
+    </linearGradient>
+    <linearGradient id="glass2" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#FFFFFF" stop-opacity=".35"></stop>
+      <stop offset="100%" stop-color="#FFFFFF" stop-opacity="0"></stop>
+    </linearGradient>
+  </defs>
+
+  <!-- Tile -->
+  <rect x="4" y="4" width="56" height="56" rx="14" fill="url(#tile2)"></rect>
+  <rect x="4" y="4" width="56" height="26" rx="14" fill="url(#glass2)"></rect>
+
+  <!-- Monitor -->
+  <rect x="14" y="17" width="36" height="24" rx="4" fill="#ffffff" opacity=".95"></rect>
+  <rect x="17" y="20" width="30" height="18" rx="2.5" fill="#F3F6FB"></rect>
+  <rect x="26" y="43" width="12" height="3" rx="1.5" fill="#EAF2FF"></rect>
+  <rect x="24" y="46" width="16" height="2.6" rx="1.3" fill="#DDE8FF"></rect>
+
+  <!-- Mini charts inside monitor -->
+  <!-- bars -->
+  <g fill="#5C7CFA">
+    <rect x="20" y="28" width="3" height="8" rx="1"></rect>
+    <rect x="25" y="24" width="3" height="12" rx="1"></rect>
+    <rect x="30" y="26" width="3" height="10" rx="1"></rect>
+  </g>
+  <!-- pie -->
+  <g transform="translate(40 29)">
+    <circle cx="0" cy="0" r="6" fill="#DCE6FF"></circle>
+    <path d="M0 0 L0 -6 A6 6 0 0 1 5.2 2.9 Z" fill="#5C7CFA"></path>
+  </g>
+</svg>
