@@ -63,7 +63,7 @@
   align-items: center;
   margin: 4px 0;
 }
-.meter-label { font-size: 12px; color: #64748b; text-align: right; }
+.meter-label { font-size: 12px; color: #64748b; text-align: right; white-space: nowrap; }
 .meter-val   { font-size: 12px; color: #0f172a; text-align: right; }
 
 /* services side card */
@@ -131,3 +131,76 @@
 .legend .dot.bad  { background:#dc2626; }
 .legend .dot.idle { background:#94a3b8; }
 
+/* Title */
+.page-title { display:flex; align-items:center; gap:12px; margin-bottom:8px; }
+.page-title .uptime { font-size:12px; color:#64748b; }
+
+/* 2x2 grid */
+.diag-layout.diag-2x2 { display:grid; gap:16px; grid-template-columns: 1fr 1fr; }
+.util-card { grid-column: 1 / span 1; }
+.net-card { grid-column: 2 / span 1; }
+.services-card { grid-column: 1 / span 1; }
+.reboot-card { grid-column: 2 / span 1; }
+@media (max-width: 1200px) { .diag-layout.diag-2x2 { grid-template-columns: 1fr; } }
+
+/* Utilization layout: 2 donuts on top, CPU chart full-width below */
+.util-with-cpu {
+  display:grid;
+  grid-template-columns: 260px 260px 1fr;
+  grid-template-areas:
+    "donutA donutB ."
+    "cpu    cpu    cpu";
+  gap:16px;
+  align-items:center;
+}
+.util-with-cpu .donutA { grid-area: donutA; }
+.util-with-cpu .donutB { grid-area: donutB; }
+.util-with-cpu .cpuArea { grid-area: cpu; margin-top: 15%; }
+
+.donut { display:flex; flex-direction:column; align-items:center; }
+.donut-val { font: 600 18px/1.2 ui-sans-serif, system-ui; fill:#0f172a; }
+.donut-sub { font: 500 12px/1.2 ui-sans-serif, system-ui; fill:#475569; }
+.donut-caption { margin-top:6px; font-size:12px; color:#475569; }
+
+.spark { display:flex; flex-direction:column; }
+.spark-label { font-size:12px; color:#64748b; margin-bottom:6px; }
+
+/* tiny meters */
+.bar { height:10px; width:100%; background:#e5e7eb; border-radius:999px; overflow:hidden; }
+.bar-fill { height:100%; border-radius:999px; }
+
+.kpi-label { font-size:12px; color:#64748b; }
+.kpi-value { font-size:18px; font-weight:600; color:#0f172a; }
+.kpi-sub   { font-size:12px; color:#475569; }
+
+/* Network card */
+.net-grid { display:grid; gap:14px; }
+.net-box { border:1px solid #eef2f7; background:#fafbfc; border-radius:10px; padding:10px; }
+.net-stat { display:flex; flex-direction:column; gap:8px; }
+.net-foot { color:#475569; }
+
+/* Services */
+.svc-table { padding:4px 0; }
+.svc-stat-row { display:flex; align-items:center; gap:10px; padding:8px 0; border-bottom:1px dashed #eef2f7; }
+.svc-stat-row:last-child { border-bottom:0; }
+.svc-dot { width:8px; height:8px; border-radius:999px; display:inline-block; }
+.svc-dot.ok { background:#16a34a; }
+.svc-dot.warn { background:#f59e0b; }
+.svc-dot.bad { background:#dc2626; }
+.svc-dot.grey { background:#94a3b8; }
+.svc-label { color:#0f172a; }
+.svc-count { margin-left:auto; font-weight:600; color:#0f172a; }
+.svc-total { margin-top:8px; font-size:12px; color:#64748b; }
+
+/* Restarts */
+.reboot-wrap { display:flex; flex-direction:column; gap:6px; }
+.reboot-sub  { font-size:12px; color:#475569; }
+.reboot-hint { font-size:11px; color:#94a3b8; }
+
+.core-head { margin-top:10px; font-size:12px; color:#64748b; font-weight:600; }
+.core-grid { margin-top:6px; }
+
+
+/* --- Uptime badge (matches donut visuals without a progress arc) --- */
+.uptime-badge { display:flex; flex-direction:column; align-items:center; }
+.uptime-val   { font: 600 18px/1.2 ui-sans-serif, system-ui; fill:#0f172a; }
