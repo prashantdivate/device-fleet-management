@@ -1,7 +1,7 @@
 // client/src/pages/Diagnostics.jsx
-import React, { useEffect, useState, useMemo } from "react";
+import React, { useEffect, useState } from "react";
 import { useSession } from "../ctx/SessionContext.jsx";
-import "./Diagnostics.css"
+import "./Diagnostics.css";
 
 /* ----------------- helpers ----------------- */
 function clamp(n, lo, hi) { return Math.max(lo, Math.min(hi, n)); }
@@ -31,72 +31,44 @@ function secondsToUptime(sec) {
 }
 
 function percent(used_kb, total_kb) {
-  if (!total_kb && total_kb !== 0) return null;
-  if (used_kb == null) return null;
+  if (!Number.isFinite(total_kb) || !Number.isFinite(used_kb)) return null;
   return clamp(Math.round((used_kb / total_kb) * 100), 0, 100);
 }
 
-/** Pick a disk object for a given role from flexible shapes.
- * Supports:
- *  - diag.disk                 -> assumed ROOT
- *  - diag.app_disk             -> APP
- *  - diag.disks (array/map)    -> find by key or by mount path
- */
-function pickDisk(diag, role /* 'root' | 'app' */, fallbackMounts = []) {
-  if (!diag) return null;
-
-  // explicit fields
-  if (role === "root" && diag.disk) return diag.disk;
-  if (role === "app"  && diag.app_disk) return diag.app_disk;
-
-  const disks = diag.disks;
-  if (!disks) return null;
-
-  // normalize to array of {name?, mount?, used_kb, total_kb}
-  let arr = [];
-  if (Array.isArray(disks)) {
-    arr = disks;
-  } else if (typeof disks === "object") {
-    for (const [k, v] of Object.entries(disks)) {
-      arr.push({ name: k, ...(v || {}) });
-    }
-  }
-
-  // role-based matching
-  const namesWanted = role === "root" ? ["root", "os", "system", "/"] : ["app", "apps", "application", "data"];
-  const mountsWanted = role === "root"
-    ? ["/", "/root", "/sysroot", "/ostree/deploy", "/usr"]
-    : [...fallbackMounts, "/app", "/mnt/app", "/data", "/mnt/data", "/var/lib/containers", "/var/lib/docker"];
-
-  // 1) exact name match
-  let hit = arr.find(d => namesWanted.some(n => (d.name || "").toLowerCase() === n));
-  if (hit) return hit;
-
-  // 2) mount path fuzzy
-  hit = arr.find(d => mountsWanted.some(m => (d.mount || "").startsWith(m)));
-  if (hit) return hit;
-
-  // 3) heuristic fallback:
-  //    - for root: largest total_kb
-  //    - for app : second largest total_kb
-  const bySize = [...arr].filter(d => d.total_kb).sort((a, b) => (b.total_kb || 0) - (a.total_kb || 0));
-  if (bySize.length) {
-    if (role === "root") return bySize[0];
-    if (role === "app")  return bySize[1] || null;
-  }
-  return null;
+function lastSeenFromSummary(sum) {
+  const raw = sum?._serverTs || sum?.snapshot?.ts;
+  if (!raw) return null;
+  const ts = typeof raw === "string" ? Date.parse(raw) : raw;
+  const diff = Math.max(0, Date.now() - ts);
+  const s = Math.floor(diff / 1000);
+  if (s < 60) return `${s}s ago`;
+  const m = Math.floor(s / 60);
+  if (m < 60) return `${m}m ago`;
+  const h = Math.floor(m / 60);
+  return `${h}h ago`;
 }
 
-function lastSeenFromSummary(sum) {
-  const ts = sum?.snapshot?._serverTs || sum?._serverTs || sum?.snapshot?.ts;
-  if (!ts) return null;
-  const diff = Math.max(0, Date.now() - ts);
-  const s = Math.floor(diff/1000);
-  if (s < 60) return `${s}s ago`;
-  const m = Math.floor(s/60);
-  if (m < 60) return `${m}m ago`;
-  const h = Math.floor(m/60);
-  return `${h}h ago`;
+/** RootFS picker — supports multiple shapes:
+ *  - diag.disk.sysroot / diag.disk.root / diag.disk (single object)
+ *  - diag.disks.sysroot / diag.disks.root
+ */
+function pickRootfs(diag) {
+  if (!diag) return null;
+
+  const disk = diag.disk;
+  if (disk && typeof disk === "object") {
+    if (disk.sysroot && (disk.sysroot.total_kb || disk.sysroot.used_kb)) return { ...disk.sysroot, name: "RootFS (/sysroot)" };
+    if (disk.root    && (disk.root.total_kb    || disk.root.used_kb))    return { ...disk.root,    name: "RootFS (/)" };
+    if (Number.isFinite(disk.total_kb) || Number.isFinite(disk.used_kb)) return { ...disk,         name: "RootFS" };
+  }
+
+  const disks = diag.disks;
+  if (disks && typeof disks === "object") {
+    if (disks.sysroot && (disks.sysroot.total_kb || disks.sysroot.used_kb)) return { ...disks.sysroot, name: "RootFS (/sysroot)" };
+    if (disks.root    && (disks.root.total_kb    || disks.root.used_kb))    return { ...disks.root,    name: "RootFS (/)" };
+  }
+
+  return null;
 }
 
 /* ----------------- component ----------------- */
@@ -105,6 +77,7 @@ export default function Diagnostics() {
   const [sum, setSum] = useState(null);
   const [loading, setLoading] = useState(false);
 
+  // Call the server running on the same host (port 4000)
   const host  = typeof window !== "undefined" ? window.location.hostname : "localhost";
   const proto = typeof window !== "undefined" ? window.location.protocol : "http:";
   const apiBase = `${proto}//${host}:4000`;
@@ -135,20 +108,20 @@ export default function Diagnostics() {
   const diag       = snapshot?.diag || sum?.diag || null;
   const containers = snapshot?.containers || sum?.containers || [];
 
-  // systemd (preferred) and container fallback
+  // Services: prefer systemd summary, else container status counts
   const sysd = diag?.systemd || null;
   const contRunning = containers.filter(c => /running|up|healthy/i.test(c.status || c.state || "")).length;
   const contExited  = containers.filter(c => /exit|dead|failed/i.test(c.status || c.state || "")).length;
   const contCreated = containers.filter(c => /created/i.test(c.status || c.state || "")).length;
 
-  // memory %
-  const memPct = percent(diag?.mem?.used_kb, diag?.mem?.total_kb);
+  // Memory
+  const memUsed  = diag?.mem?.used_kb ?? null;
+  const memTotal = diag?.mem?.total_kb ?? null;
+  const memPct   = percent(memUsed, memTotal);
 
-  // disk ROOT & APP (supports multiple shapes, see pickDisk)
-  const rootDisk = pickDisk(diag, "root");
-  const appDisk  = pickDisk(diag, "app");
-  const rootPct  = percent(rootDisk?.used_kb, rootDisk?.total_kb);
-  const appPct   = percent(appDisk?.used_kb,  appDisk?.total_kb);
+  // Disk (RootFS only — App disk removed by request)
+  const rootDisk = pickRootfs(diag);
+  const rootPct  = percent(rootDisk?.used_kb ?? null, rootDisk?.total_kb ?? null);
 
   // CPU load normalized by core count
   const cores = diag?.cpu?.cores ?? diag?.cpu_cores ?? diag?.cores ?? diag?.nproc ?? 1;
@@ -159,9 +132,9 @@ export default function Diagnostics() {
   const la5Pct  = clamp(Math.round((la5  / cores) * 100), 0, 100);
   const la15Pct = clamp(Math.round((la15 / cores) * 100), 0, 100);
 
-  const online = !!sum?.online || (Date.now() - (sum?._serverTs || sum?.snapshot?._serverTs || 0) < 20000);
+  const online = !!sum?.online || (Date.now() - (sum?._serverTs || 0) < 20000);
   const lastUpdate = lastSeenFromSummary(sum);
-  const lastUpdateTitle = sum?.snapshot?.ts || sum?._serverTs ? new Date(sum?.snapshot?._serverTs || sum?._serverTs || sum?.snapshot?.ts).toString() : "";
+  const lastUpdateTitle = sum?.snapshot?.ts || sum?._serverTs ? new Date(sum?.snapshot?.ts || sum?._serverTs).toString() : "";
 
   return (
     <section className="card fill">
@@ -218,27 +191,27 @@ export default function Diagnostics() {
               <div className="kpi-sub">normalized by <strong>{cores}</strong> core{cores === 1 ? "" : "s"}</div>
             </div>
 
-            {/* Memory */}
+            {/* RAM */}
             <div
               className="kpi"
-              title={`Memory: ${formatBytesKB(diag.mem?.used_kb)} / ${formatBytesKB(diag.mem?.total_kb)}${memPct != null ? ` (${memPct}%)` : ""}`}
+              title={`Memory: ${formatBytesKB(memUsed)} / ${formatBytesKB(memTotal)}${memPct != null ? ` (${memPct}%)` : ""}`}
             >
-              <div className="kpi-label">Memory</div>
+              <div className="kpi-label">RAM</div>
               <div className="meter meter-lg">
                 <div className="meter-fill" style={{width: memPct == null ? "0%" : `${memPct}%`, background: meterColor(memPct)}} />
               </div>
               <div className="kpi-sub">
-                {formatBytesKB(diag.mem?.used_kb)} / {formatBytesKB(diag.mem?.total_kb)}
+                {formatBytesKB(memUsed)} / {formatBytesKB(memTotal)}
                 {memPct != null ? ` (${memPct}%)` : ""} &nbsp;•&nbsp; updated {lastUpdate || "—"}
               </div>
             </div>
 
-            {/* Disk (ROOT) */}
+            {/* Disk (RootFS only) */}
             <div
               className="kpi"
-              title={`Root: ${formatBytesKB(rootDisk?.used_kb)} / ${formatBytesKB(rootDisk?.total_kb)}${rootPct != null ? ` (${rootPct}%)` : ""}${rootDisk?.mount ? ` • ${rootDisk.mount}` : ""}`}
+              title={`RootFS: ${formatBytesKB(rootDisk?.used_kb)} / ${formatBytesKB(rootDisk?.total_kb)}${rootPct != null ? ` (${rootPct}%)` : ""}${rootDisk?.mount ? ` • ${rootDisk.mount}` : ""}`}
             >
-              <div className="kpi-label">Disk (root)</div>
+              <div className="kpi-label">{rootDisk?.name || "RootFS"}</div>
               <div className="meter meter-lg">
                 <div className="meter-fill" style={{width: rootPct == null ? "0%" : `${rootPct}%`, background: meterColor(rootPct)}} />
               </div>
@@ -247,23 +220,6 @@ export default function Diagnostics() {
                 {rootPct != null ? ` (${rootPct}%)` : ""} {rootDisk?.mount ? ` • ${rootDisk.mount}` : ""}
               </div>
             </div>
-
-            {/* Disk (APP) — only shows if discoverable */}
-            {appDisk ? (
-              <div
-                className="kpi"
-                title={`App: ${formatBytesKB(appDisk?.used_kb)} / ${formatBytesKB(appDisk?.total_kb)}${appPct != null ? ` (${appPct}%)` : ""}${appDisk?.mount ? ` • ${appDisk.mount}` : ""}`}
-              >
-                <div className="kpi-label">Disk (app)</div>
-                <div className="meter meter-lg">
-                  <div className="meter-fill" style={{width: appPct == null ? "0%" : `${appPct}%`, background: meterColor(appPct)}} />
-                </div>
-                <div className="kpi-sub">
-                  {formatBytesKB(appDisk?.used_kb)} / {formatBytesKB(appDisk?.total_kb)}
-                  {appPct != null ? ` (${appPct}%)` : ""} {appDisk?.mount ? ` • ${appDisk.mount}` : ""}
-                </div>
-              </div>
-            ) : null}
 
             {/* CPU Temp */}
             <div
