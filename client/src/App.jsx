@@ -22,19 +22,30 @@ function Layout() {
 
       <main className="main-pane">
         <Routes>
-          <Route index element={<Navigate to="/summary" replace />} />
-          <Route path="/summary" element={<Summary />} />
+          {/* Default landing goes to Devices */}
+          <Route index element={<Navigate to="/devices" replace />} />
+
+          {/* Devices */}
           <Route path="/devices" element={<Devices />} />
-          <Route path="/diagnostics" element={<Diagnostics />} />
+
+          {/* Summary: only deep-linkable; bare /summary -> /devices */}
+          <Route path="/summary/:id" element={<Summary />} />
+          <Route path="/summary" element={<Navigate to="/devices" replace />} />
+
+          {/* Diagnostics: only deep-linkable; bare /diagnostics -> /devices */}
+          <Route path="/diagnostics/:deviceId" element={<Diagnostics />} />
+          <Route path="/diagnostics" element={<Navigate to="/devices" replace />} />
+
+          {/* Other pages */}
           <Route path="/terminal" element={<Terminal />} />
           <Route path="/updates" element={<Updates />} />
           <Route path="/settings" element={<Settings />} />
           <Route path="/map" element={<Map />} />
-          <Route path="*" element={<Navigate to="/summary" replace />} />
 
-          {/* device names link with summary */}
-          <Route path="/summary/:id?" element={<Summary />} />
+          {/* Catch-all */}
+          <Route path="*" element={<Navigate to="/devices" replace />} />
         </Routes>
+
       </main>
     </div>
   );

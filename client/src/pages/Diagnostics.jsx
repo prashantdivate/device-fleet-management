@@ -223,6 +223,15 @@ function RebootChart({ events }) {
 /* ----------------- main component ----------------- */
 export default function Diagnostics() {
   const { deviceId } = useSession();
+  if (!deviceId) {
+  return (
+    <section className="card">
+      <h3>Diagnostics</h3>
+      <p>No device selected.</p>
+      <p>Go to <Link to="/devices">Devices</Link> → choose a device → then open Diagnostics.</p>
+    </section>
+  );
+}
   const [sum, setSum] = useState(null);
   const [loading, setLoading] = useState(false);
 

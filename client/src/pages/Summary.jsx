@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { useParams, useSearchParams, useNavigate } from "react-router-dom";
+import { useParams, useSearchParams, useNavigate, Navigate } from "react-router-dom";
 import { useSession } from "../ctx/SessionContext.jsx";
 import LiveLogs from "../modules/LiveLogs.jsx";
 import SshTerminal from "../modules/SshTerminal.jsx";
@@ -14,6 +14,16 @@ export default function Summary() {
     sshPort, setSshPort,
     sshPass, setSshPass,
   } = useSession();
+
+
+  const { id: urlId } = useParams();
+  const currentId = urlId || null;  // rely on URL, not session
+
+  // If someone hits /summary without an ID, bounce to Devices
+  if (!urlId) {
+    return <Navigate to="/devices" replace />;
+
+  }
 
   // --- NEW: adopt ID from URL ( /summary/:id or ?device_id= ) and keep URL in sync
   const params = useParams();
@@ -148,6 +158,21 @@ export default function Summary() {
     );
   }
 
+  function DiagnosticsButton({ id }) {
+  const navigate = useNavigate();
+  const disabled = !id;
+  return (
+    <button
+      onClick={() => navigate(`/diagnostics/${encodeURIComponent(id)}`)}
+      disabled={disabled}
+      style={{ marginLeft: 8 }}
+      title={disabled ? "Select a device first" : "Open Diagnostics"}
+    >
+      Diagnostics
+    </button>
+  );
+}
+
   return (
     <div className="summary-grid">
       {/* LEFT: Device Summary */}
@@ -156,7 +181,8 @@ export default function Summary() {
           <h3>Device Summary</h3>
           <div className="device-actions" style={{ display: "flex", justifyContent: "flex-end" }}>
             <span className={`pill ${online ? "pill-ok" : "pill-off"}`}>{online ? "Online" : "Offline"}</span>
-            <RebootButton deviceId={deviceId} />
+            <DiagnosticsButton id={currentId} />
+            <RebootButton deviceId={currentId} />
           </div>
         </div>
 
