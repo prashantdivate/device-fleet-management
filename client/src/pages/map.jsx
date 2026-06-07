@@ -6,6 +6,16 @@ export default function MapPage() {
   const mapRef = useRef(null);
   const layerRef = useRef(null);
   const [devices, setDevices] = useState([]);
+  const [mapReady, setMapReady] = useState(false);
+  const approximateSources = new Set(["ip", "ipinfo"]);
+
+  const escapeHtml = (value) => String(value ?? "").replace(/[&<>"']/g, (ch) => ({
+    "&": "&amp;",
+    "<": "&lt;",
+    ">": "&gt;",
+    '"': "&quot;",
+    "'": "&#39;",
+  }[ch]));
 
   // Load Leaflet from CDN once
   async function ensureLeaflet() {
@@ -74,6 +84,7 @@ export default function MapPage() {
       window.__map = map; // debug helper
       mapRef.current = map;
       layerRef.current = lg;
+      setMapReady(true);
       setTimeout(() => map.invalidateSize(), 50);
     })();
     return () => { cancelled = true; };
@@ -84,7 +95,7 @@ export default function MapPage() {
     const L = window.L;
     const map = mapRef.current;
     const layer = layerRef.current;
-    if (!L || !map || !layer) return;
+    if (!mapReady || !L || !map || !layer) return;
 
     layer.clearLayers();
 
@@ -94,8 +105,23 @@ export default function MapPage() {
       const lat = Number(g.lat);
       const lon = Number(g.lon ?? g.lng);           // accept lon or lng
       if (!Number.isFinite(lat) || !Number.isFinite(lon)) return null;
-      const label = `${d.name || d.device_id} (${g.source}${g.accuracy_km ? ` ~${g.accuracy_km}km` : ""})`;
-      return { lat, lon, label };
+      const source = g.source || "device";
+      const approximate = approximateSources.has(source);
+      const accuracyM = Number.isFinite(Number(g.accuracy_m))
+        ? Number(g.accuracy_m)
+        : (Number.isFinite(Number(g.accuracy_km)) ? Number(g.accuracy_km) * 1000 : (approximate ? 25000 : null));
+      const accuracyText = accuracyM != null
+        ? ` +/- ${accuracyM >= 1000 ? `${(accuracyM / 1000).toFixed(1)} km` : `${Math.round(accuracyM)} m`}`
+        : "";
+      const name = d.name || d.device_id;
+      const googleUrl = `https://www.google.com/maps?q=${encodeURIComponent(`${lat},${lon}`)}`;
+      const popup = [
+        `<strong>${escapeHtml(name)}</strong>`,
+        `<strong>Plotted:</strong> ${lat.toFixed(8)}, ${lon.toFixed(8)}`,
+        `${escapeHtml(source)}${escapeHtml(accuracyText)}${approximate ? "<br/><strong>Approximate IP location, not GPS</strong>" : ""}`,
+        `<a href="${googleUrl}" target="_blank" rel="noreferrer">Open in Google Maps</a>`,
+      ].join("<br/>");
+      return { lat, lon, popup, title: name, source, accuracyM, approximate };
     }).filter(Boolean);
 
     console.log(`Rendering ${points.length} online device(s)`);
@@ -104,14 +130,27 @@ export default function MapPage() {
 
     const bounds = [];
     points.forEach(p => {
-      layer.addLayer(L.marker([p.lat, p.lon], { title: p.label }).bindPopup(p.label));
-      layer.addLayer(L.circle([p.lat, p.lon], { radius: 5000, color: "#2ecc71", weight: 2, opacity: 1 }));
+      layer.addLayer(L.marker([p.lat, p.lon], { title: p.title }).bindPopup(p.popup));
+      if (p.accuracyM != null && p.accuracyM > 0) {
+        layer.addLayer(L.circle([p.lat, p.lon], {
+          radius: p.accuracyM,
+          color: p.approximate ? "#f59e0b" : "#2ecc71",
+          weight: 2,
+          opacity: 1,
+          fillOpacity: 0.08,
+        }));
+      }
       bounds.push([p.lat, p.lon]);
     });
 
-    const b = L.latLngBounds(bounds);
-    map.fitBounds(b.pad(0.2), { maxZoom: 12 });
-  }, [devices]);
+    if (points.length === 1) {
+      const p = points[0];
+      map.setView([p.lat, p.lon], p.approximate ? 11 : 16);
+    } else {
+      const b = L.latLngBounds(bounds);
+      map.fitBounds(b.pad(0.2), { maxZoom: 16 });
+    }
+  }, [devices, mapReady]);
 
   return <div ref={divRef} style={{ height: "100%", minHeight: "80vh", width: "100%" }} />;
 }

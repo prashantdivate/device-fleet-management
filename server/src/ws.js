@@ -78,8 +78,29 @@ function ensureState(device_id) {
 }
 
 function computeGeo(st) {
-  // priority: custom > device > auto
-  return st.custom_geo || st.device_geo || st.auto_geo || null;
+  // Prefer live coordinates sent by the agent. Saved custom/IP locations are fallbacks.
+  return st.device_geo || st.custom_geo || st.auto_geo || null;
+}
+
+function normalizeDeviceGeo(raw) {
+  if (!raw || typeof raw !== "object") return null;
+  const lat = Number(raw.lat ?? raw.latitude);
+  const lon = Number(raw.lon ?? raw.lng ?? raw.longitude);
+  if (!Number.isFinite(lat) || !Number.isFinite(lon)) return null;
+  if (lat < -90 || lat > 90 || lon < -180 || lon > 180) return null;
+
+  const out = {
+    lat,
+    lon,
+    source: raw.source || "device",
+  };
+  const accuracy_m = Number(raw.accuracy_m ?? raw.accuracy);
+  if (Number.isFinite(accuracy_m) && accuracy_m >= 0) out.accuracy_m = accuracy_m;
+  const accuracy_km = Number(raw.accuracy_km);
+  if (Number.isFinite(accuracy_km) && accuracy_km >= 0) out.accuracy_km = accuracy_km;
+  if (raw.label) out.label = String(raw.label);
+  if (raw.time) out.time = raw.time;
+  return out;
 }
 
 function writeLogLine(device_id, text) {
@@ -248,10 +269,11 @@ export function setupWs(server) {
               })().catch(() => {});
             }
 
-            // If the agent ever adds precise coordinates (GNSS/Wi-Fi), honor them:
+            // If the agent adds precise coordinates (GNSS/Wi-Fi/manual), honor them:
             // obj.geo = { lat, lon, accuracy_m?, source? }
-            if (obj.geo && Number.isFinite(obj.geo.lat) && Number.isFinite(obj.geo.lon)) {
-              st.device_geo = { ...obj.geo, source: obj.geo.source || "device" };
+            const deviceGeo = normalizeDeviceGeo(obj.geo);
+            if (deviceGeo) {
+              st.device_geo = deviceGeo;
               st._serverTs = Date.now();
             }
           }

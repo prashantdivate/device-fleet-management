@@ -37,6 +37,49 @@ export VERBOSE=1
 export INPUT=journal
 python3 agent.py
 
+Device location:
+
+For precise installed-device location without exporting coordinates each time,
+create `/etc/device-location.json` on the device.
+
+Option A, exact coordinates:
+
+{
+  "lat": 12.91792143757691,
+  "lon": 77.63338306937608,
+  "accuracy_m": 10
+}
+
+Option B, installed address:
+
+{
+  "address": "1st Avenue, HSR Layout, Bengaluru 560034, Karnataka, India"
+}
+
+The agent reads this file automatically before falling back to other sources.
+You can override the path with `DEVICE_LOCATION_FILE`.
+
+You can also pass coordinates explicitly:
+
+export GEO_LAT=12.91792143757691
+export GEO_LON=77.63338306937608
+export GEO_ACCURACY_M=10
+
+If no file, coordinates, or address are configured, the agent falls back to
+ipinfo.io and sends approximate public-IP/network coordinates.
+
+export SERVER_URL=ws://<SERVER_IP>:4000/ingest
+export VERBOSE=1
+export INPUT=journal
+python3 agent.py
+
+Optional ipinfo token:
+
+export IPINFO_TOKEN=<token>
+
+The Location page uses the agent-provided `geo` field before the server's own
+fallback location.
+
 Files (comma-separated, globs allowed):
 
 export SERVER_URL=ws://<SERVER_IP>:4000/ingest
@@ -78,4 +121,3 @@ sudo cp agent.py /opt/device-agent/
 sudo mkdir -p /var/lib/device-agent/spool
 sudo systemctl daemon-reload
 sudo systemctl enable --now device-agent
-
